@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def rows_no_change(col):
     """
     Get number of rows with no change
@@ -11,12 +12,14 @@ def rows_no_change(col):
         ((col != col.shift())).cumsum()
     ).transform('size')
 
+
 def summary_change(df):
     dfs = pd.concat([
         df[c].value_counts(normalize=True).sort_index().cumsum()
         for c in df.columns if c.startswith('nochange-')
     ], axis=1)
     return dfs
+
 
 def make_stable_values_null(col, nrows=4):
     no_change = rows_no_change(col)
