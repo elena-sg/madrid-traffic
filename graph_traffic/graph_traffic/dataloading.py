@@ -39,56 +39,56 @@ class SnapShotDataset(Dataset):
 
 
 def METR_LAGraphDataset():
-    if not os.path.exists('data/graph_la.bin'):
-        if not os.path.exists('data'):
-            os.mkdir('data')
+    if not os.path.exists('../../data/05-graph-data/metr_la-dataset/graph_la.bin'):
+        if not os.path.exists('../../data'):
+            os.mkdir('../../data')
         download_file('graph_la.bin')
-    g, _ = dgl.load_graphs('data/graph_la.bin')
+    g, _ = dgl.load_graphs('../../data/05-graph-data/metr_la-dataset/graph_la.bin')
     return g[0]
 
 
 class METR_LATrainDataset(SnapShotDataset):
     def __init__(self):
-        super(METR_LATrainDataset, self).__init__('data', 'metr_la_train.npz')
+        super(METR_LATrainDataset, self).__init__('../../data', 'metr_la_train.npz')
         self.mean = self.x[..., 0].mean()
         self.std = self.x[..., 0].std()
 
 
 class METR_LATestDataset(SnapShotDataset):
     def __init__(self):
-        super(METR_LATestDataset, self).__init__('data', 'metr_la_test.npz')
+        super(METR_LATestDataset, self).__init__('../../data', 'metr_la_test.npz')
 
 
 class METR_LAValidDataset(SnapShotDataset):
     def __init__(self):
-        super(METR_LAValidDataset, self).__init__('data', 'metr_la_valid.npz')
+        super(METR_LAValidDataset, self).__init__('../../data', 'metr_la_valid.npz')
 
 def MadridGraphDataset():
-    g, _ = dgl.load_graphs('data/madrid-graph.bin')
+    g, _ = dgl.load_graphs('../../data/05-graph-data/madrid-dataset/madrid-graph.bin')
     return g[0]
 
 
 class MadridTrainDataset(SnapShotDataset):
     def __init__(self):
-        super(MadridTrainDataset, self).__init__('data', 'madrid-train.npz')
+        super(MadridTrainDataset, self).__init__('../../data', 'madrid-train.npz')
         self.mean = self.x[..., 0].mean()
         self.std = self.x[..., 0].std()
 
 
 class MadridTestDataset(SnapShotDataset):
     def __init__(self):
-        super(MadridTestDataset, self).__init__('data', 'madrid-test.npz')
+        super(MadridTestDataset, self).__init__('../../data', 'madrid-test.npz')
 
 
 class MadridValidDataset(SnapShotDataset):
     def __init__(self):
-        super(MadridValidDataset, self).__init__('data', 'madrid-val.npz')
+        super(MadridValidDataset, self).__init__('../../data', 'madrid-val.npz')
 
 
 def PEMS_BAYGraphDataset():
     if not os.path.exists('data/graph_bay.bin'):
-        if not os.path.exists('data'):
-            os.mkdir('data')
+        if not os.path.exists('../../data'):
+            os.mkdir('../../data')
         download_file('graph_bay.bin')
     g, _ = dgl.load_graphs('data/graph_bay.bin')
     return g[0]
@@ -97,17 +97,17 @@ def PEMS_BAYGraphDataset():
 class PEMS_BAYTrainDataset(SnapShotDataset):
     def __init__(self):
         super(PEMS_BAYTrainDataset, self).__init__(
-            'data', 'pems_bay_train.npz')
+            '../../data', 'pems_bay_train.npz')
         self.mean = self.x[..., 0].mean()
         self.std = self.x[..., 0].std()
 
 
 class PEMS_BAYTestDataset(SnapShotDataset):
     def __init__(self):
-        super(PEMS_BAYTestDataset, self).__init__('data', 'pems_bay_test.npz')
+        super(PEMS_BAYTestDataset, self).__init__('../../data', 'pems_bay_test.npz')
 
 
 class PEMS_BAYValidDataset(SnapShotDataset):
     def __init__(self):
         super(PEMS_BAYValidDataset, self).__init__(
-            'data', 'pems_bay_valid.npz')
+            '../../data', 'pems_bay_valid.npz')

@@ -200,4 +200,4 @@ if __name__ == "__main__":
                                                                              valid_loss,
                                                                              test_loss))
 
-    torch.save(dcrnn.state_dict(), "trained-dcrnn.pt")
+    torch.save(dcrnn.state_dict(), "../../trained-dcrnn.pt")

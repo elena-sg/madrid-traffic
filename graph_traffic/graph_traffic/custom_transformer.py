@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sklearn.compose import ColumnTransformer
+from sklearn.kernel_approximation import Nystroem
 
 from graph_traffic.config import data_path
 import numpy as np
@@ -33,8 +34,8 @@ def day_type(date):
     return np.select(conditions, day_types, default=np.nan)
 
 
-def season(fecha):
-    dt = fecha.dt
+def get_season(date):
+    dt = date.dt
     conditions = [
         (dt.month <= 3) & (dt.day <= 21),
         (dt.month <= 6) & (dt.day <= 21),
@@ -52,115 +53,85 @@ def season(fecha):
     return np.select(conditions, seasons)
 
 
-def school_holidays(fecha):
-    condition = (fecha <= datetime(2019, 1, 7)) | \
-                (fecha.between(
+def school_holidays(date):
+    condition = (date <= datetime(2019, 1, 7)) | \
+                (date.between(
                     datetime(2019, 3, 1), datetime(2019, 3, 4)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 4, 12), datetime(2019, 4, 22)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 5, 1), datetime(2019, 5, 5)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 6, 21), datetime(2019, 9, 10)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 10, 31), datetime(2019, 11, 3)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 12, 7), datetime(2019, 12, 9)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2019, 12, 21), datetime(2020, 1, 7)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 2, 28), datetime(2020, 3, 2)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 4, 3), datetime(2020, 4, 13)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 5, 1), datetime(2020, 5, 1)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 6, 23), datetime(2020, 9, 9)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 10, 12), datetime(2020, 10, 12)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 11, 2), datetime(2020, 11, 2)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 11, 9), datetime(2020, 11, 9)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 12, 7), datetime(2020, 12, 8)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2020, 12, 23), datetime(2021, 1, 10)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 2, 19), datetime(2021, 2, 22)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 3, 19), datetime(2021, 3, 19)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 3, 26), datetime(2021, 4, 5)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 5, 1), datetime(2021, 5, 4)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 6, 23), datetime(2021, 9, 8)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 10, 9), datetime(2021, 10, 12)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 10, 30), datetime(2021, 11, 1)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 12, 4), datetime(2021, 12, 8)
                 )) | \
-                (fecha.between(
+                (date.between(
                     datetime(2021, 12, 23), datetime(2022, 1, 9)
                 ))
     return condition
 
-
-def transform_df(df: pd.DataFrame):
-    df["year"] = df.fecha.dt.year
-    df["season"] = season(df.fecha)
-    df["month"] = df.fecha.dt.month
-    df["day_of_month"] = df.fecha.dt.day
-    df["day_of_year"] = df.fecha.dt.day_of_year + df.fecha.dt.hour / 24 + df.fecha.dt.minute / 24 / 60
-    df["day_type"] = day_type(df.fecha)
-    df["bank_holiday"] = df.fecha.dt.date.isin(bank_holidays)
-    df["working_day"] = (df.fecha.dt.weekday <= 4) & (~df.bank_holiday)
-    df["school_holidays"] = school_holidays(df.fecha) | (~df.working_day)
-    df["hour"] = df.fecha.dt.hour + df.fecha.dt.minute / 60
-    df["minute"] = df.fecha.dt.minute
-
-    del df["fecha"]
-
-    return df
-
-
-# feature engineering possibilities for each feature
-# precipitacion: one_hot, ordinal, numeric_power, numeric_quantile_uniform, numeric_quantile_normal
-# estacion: one_hot, ordinal
-# bank_holiday: bool
-# working_day: bool
-# school_holidays: bool
-# year: one_hot
-# month: numeric, one_hot, trigonometric, spline
-# day: numeric, one_hot, trigonometric, spline
-# hour: numeric, one_hot, trigonometric, spline
-# minute: numeric, one_hot, trigonometric, spline
 
 # Precipitacion - rain
 def rain_categories(rain):
@@ -179,28 +150,28 @@ def rain_categories(rain):
 
 rain_categories_transformer = FunctionTransformer(rain_categories)
 
-precipitacion_one_hot = make_pipeline(
+rain_one_hot = make_pipeline(
     rain_categories_transformer,
     OneHotEncoder(handle_unknown="ignore", sparse=False)
 )
 
-precipitacion_ordinal = make_pipeline(
+rain_ordinal = make_pipeline(
     rain_categories_transformer,
     OrdinalEncoder(categories=[["no_rain", "moderate_rain", "strong_rain"]]),
 )
 
-precipitacion_transformer = dict(
-    one_hot=precipitacion_one_hot,
-    ordinal=precipitacion_ordinal,
+rain_transformer = dict(
+    one_hot=rain_one_hot,
+    ordinal=rain_ordinal,
     numerico_power=PowerTransformer(method='yeo-johnson'),
     numerico_quantile_uniform=QuantileTransformer(output_distribution="uniform"),
     numerico_quantile_normal=QuantileTransformer(output_distribution="normal"),
 )
 
-# Estacion - season
-estacion_transformer = dict(
+# Season
+season_transformer = dict(
     one_hot=OneHotEncoder(handle_unknown="ignore", sparse=False),
-    ordinal=OrdinalEncoder(categories=[["verano", "primavera", "otono", "invierno"]])
+    ordinal=OrdinalEncoder(categories=[["summer", "spring", "fall", "winter"]])
 )
 
 # Boolean columns
@@ -212,9 +183,9 @@ bool_categories = [[False, True]] * len(bool_columns)
 
 period_dict = dict(
     month=12,
-    day=31,
+    day_of_month=31,
     hour=24,
-    minute=60
+    minute=60,
 )
 
 
@@ -246,7 +217,7 @@ def periodic_spline_transformer(period, n_splines=None, degree=3):
     )
 
 
-def transformer_temporal(approach, period):
+def temp_transformer(approach, period):
     if approach == "numeric":
         return "passthrough"
     elif approach == "one_hot":
@@ -257,21 +228,103 @@ def transformer_temporal(approach, period):
         return periodic_spline_transformer(period, n_splines=period // 2)
 
 
-def transformer_hora(approach):
+def hour_transformer(approach):
     if approach == "one_hot":
         return make_pipeline(
             KBinsDiscretizer(n_bins=24, encode="ordinal"),
-            transformer_temporal(approach, period_dict["hora"])
+            temp_transformer(approach, period_dict["hour"])
         )
     else:
-        return transformer_temporal(approach, period_dict["hora"])
+        return temp_transformer(approach, period_dict["hour"])
 
 
 def hour_workday_interaction(hora):
     return make_pipeline(
         ColumnTransformer([
-            ("marginal", transformer_hora(hora), ["hora"]),
+            ("marginal", hour_transformer(hora), ["hora"]),
             ("workingday", FunctionTransformer(lambda x: x == True), ["dia_laborable"])
         ]),
         PolynomialFeatures(degree=2, interaction_only=True, include_bias=False),
     )
+
+
+columns_viento = dict(xy=["windx", "windy"], wind_speed=["velocidad_viento"])
+
+passthrough_columns = ["intensidad", "temperatura", "humedad_relativa", "presion_barometrica", "radiacion_solar"]
+
+
+# feature engineering possibilities for each feature
+# intensidad: passthrough
+# temperatura: passthrough
+# humedad_relativa: passtrough
+# presion_barometrica: passthrough
+# radiacion_solar: passthrough
+# precipitacion/rain: one_hot, ordinal, numeric_power, numeric_quantile_uniform, numeric_quantile_normal
+# viento/wind: xy, wind_speed
+# year: one_hot
+# season: one_hot, ordinal
+# month: numeric, one_hot, trigonometric, spline
+# day_of_month: numeric, one_hot, trigonometric, spline
+# bank_holiday: bool
+# working_day: bool
+# school_holidays: bool
+# hour: numeric, one_hot, trigonometric, spline
+# minute: numeric, one_hot, trigonometric, spline
+# interactions: poly, kernel, False
+
+
+def preprocessing_transformer(rain, wind, season, month, day_of_month, hour, interactions):
+    step1 = ColumnTransformer(transformers=[
+        ("passthrough", "passthrough", passthrough_columns),
+        ("rain", rain_transformer.get(rain), ["precipitacion"]),
+        ("wind", "passthrough", columns_viento.get(wind)),
+        ("year", OneHotEncoder(handle_unknown="ignore", sparse=False), ["year"]),
+        ("season", season_transformer.get(season), ["season"]),
+        ("month", temp_transformer(month, period_dict["month"]), ["month"]),
+        ("day_of_month", temp_transformer(day_of_month, period_dict["day_of_month"]), ["day_of_month"]),
+        ("hour", hour_transformer(hour), ["hour"]),
+        ("minute", temp_transformer("one_hot", None), ["minute"]),
+        ("bool", OrdinalEncoder(categories=bool_categories), bool_columns),
+    ])
+    if interactions == "poly":
+        return FeatureUnion([
+            ("marginal", step1),
+            ("interactions", hour_workday_interaction(hour))
+        ])
+    elif interactions == "kernel":
+        return make_pipeline(
+            step1,
+            Nystroem(kernel="poly", degree=2, n_components=300, random_state=0)
+        )
+    else:
+        return step1
+
+
+def transform_df(df: pd.DataFrame, rain, wind, season, month, day_of_month, hour, interactions):
+    # fill gaps in the date
+    dates = pd.date_range("2019-01-01", "2020-12-31", freq="15min")
+    df = df.set_index("fecha").reindex(dates).reset_index().rename(columns={"index": "date"})
+
+    # new features based on the calendar
+    df["year"] = df.date.dt.year
+    df["season"] = get_season(df.date)
+    df["month"] = df.date.dt.month
+    df["day_of_month"] = df.date.dt.day
+    df["day_type"] = day_type(df.date)
+    df["bank_holiday"] = df.date.dt.date.isin(bank_holidays)
+    df["working_day"] = (df.date.dt.weekday <= 4) & (~df.bank_holiday)
+    df["school_holiday"] = school_holidays(df.date) | (~df.working_day)
+    df["hour"] = df.date.dt.hour + df.date.dt.minute / 60
+    df["minute"] = df.date.dt.minute
+
+    # amount of wind to east and north
+    wv = df["velocidad_viento"]
+    wd_rad = df['dir_viento'] * np.pi / 180
+    df['windx'] = wv * np.cos(wd_rad)
+    df['windy'] = wv * np.sin(wd_rad)
+
+    transformer = preprocessing_transformer(rain, wind, season, month, day_of_month, hour, interactions)
+
+    df = transformer.fit_transform(df)
+
+    return df
