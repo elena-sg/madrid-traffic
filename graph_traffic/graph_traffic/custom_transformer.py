@@ -326,5 +326,5 @@ def transform_df(df: pd.DataFrame, rain, wind, season, month, day_of_month, hour
     transformer = preprocessing_transformer(rain, wind, season, month, day_of_month, hour, interactions)
 
     df = transformer.fit_transform(df)
-
+    df = np.nan_to_num(df)
     return df

@@ -1,9 +1,7 @@
-import numpy as np
 import scipy.sparse as sparse
 import torch
 import torch.nn as nn
 import dgl
-from dgl.base import DGLError
 import dgl.function as fn
 
 

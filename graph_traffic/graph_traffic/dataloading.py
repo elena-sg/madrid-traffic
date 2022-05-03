@@ -5,28 +5,35 @@ import torch
 import numpy as np
 import dgl
 from torch.utils.data import Dataset, DataLoader
+from graph_traffic.config import data_path
+
+graph_data_path = os.path.join(data_path, "05-graph-data")
 
 
-def download_file(dataset):
+def download_file(dataset, directory):
     print("Start Downloading data: {}".format(dataset))
     url = "https://s3.us-west-2.amazonaws.com/dgl-data/dataset/{}".format(
         dataset)
     print("Start Downloading File....")
     context = ssl._create_unverified_context()
     data = urllib.request.urlopen(url, context=context)
-    with open("./data/{}".format(dataset), "wb") as handle:
+    with open(f"{graph_data_path}/{directory}/{dataset}", "wb") as handle:
         handle.write(data.read())
 
 
 class SnapShotDataset(Dataset):
-    def __init__(self, path, npz_file):
-        if not os.path.exists(path+'/'+npz_file):
+    def __init__(self, dataset_dir, npz_file, n_data_points=None):
+        path = graph_data_path + "/" + dataset_dir
+        if not os.path.exists(path + '/' + npz_file):
             if not os.path.exists(path):
                 os.mkdir(path)
-            download_file(npz_file)
-        zipfile = np.load(path+'/'+npz_file)
+            download_file(npz_file, dataset_dir)
+        zipfile = np.load(path + '/' + npz_file)
         self.x = zipfile['x']
         self.y = zipfile['y']
+        if n_data_points is not None:
+            self.x = self.x[:n_data_points]
+            self.y = self.y[:n_data_points]
 
     def __len__(self):
         return len(self.x)
@@ -38,76 +45,28 @@ class SnapShotDataset(Dataset):
         return self.x[idx, ...], self.y[idx, ...]
 
 
-def METR_LAGraphDataset():
-    if not os.path.exists('../../data/05-graph-data/metr_la-dataset/graph_la.bin'):
-        if not os.path.exists('../../data'):
-            os.mkdir('../../data')
-        download_file('graph_la.bin')
-    g, _ = dgl.load_graphs('../../data/05-graph-data/metr_la-dataset/graph_la.bin')
+graph_dict = {
+    "metr_la": "graph_la.bin",
+    "pems_bay": "graph_bay.bin",
+    "madrid": "madrid-graph.bin"
+}
+
+
+def graph_dataset(dataset):
+    graph_name = graph_dict.get(dataset, "graph.bin")
+    if not os.path.exists(f'{graph_data_path}/{dataset}-dataset/{graph_name}'):
+        if not os.path.exists(f'{graph_data_path}/{dataset}-dataset'):
+            os.mkdir(f'{graph_data_path}/{dataset}-dataset')
+        download_file(graph_name, f'{dataset}-dataset')
+    g, _ = dgl.load_graphs(f'{graph_data_path}/{dataset}-dataset/{graph_name}')
     return g[0]
 
 
-class METR_LATrainDataset(SnapShotDataset):
-    def __init__(self):
-        super(METR_LATrainDataset, self).__init__('../../data', 'metr_la_train.npz')
-        self.mean = self.x[..., 0].mean()
-        self.std = self.x[..., 0].std()
+class npzDataset(SnapShotDataset):
+    def __init__(self, dataset, part, n_data_points=None):
+        super(npzDataset, self).__init__(f'{dataset}-dataset', f'{dataset}_{part}.npz', n_data_points)
+        if part == "train":
+            self.mean = np.nanmean(self.x, axis=(0, 1, 2))
+            self.std = np.nanstd(self.x, axis=(0, 1, 2))
+            self.std = np.where(self.std==0, 1, self.std)
 
-
-class METR_LATestDataset(SnapShotDataset):
-    def __init__(self):
-        super(METR_LATestDataset, self).__init__('../../data', 'metr_la_test.npz')
-
-
-class METR_LAValidDataset(SnapShotDataset):
-    def __init__(self):
-        super(METR_LAValidDataset, self).__init__('../../data', 'metr_la_valid.npz')
-
-def MadridGraphDataset():
-    g, _ = dgl.load_graphs('../../data/05-graph-data/madrid-dataset/madrid-graph.bin')
-    return g[0]
-
-
-class MadridTrainDataset(SnapShotDataset):
-    def __init__(self):
-        super(MadridTrainDataset, self).__init__('../../data', 'madrid-train.npz')
-        self.mean = self.x[..., 0].mean()
-        self.std = self.x[..., 0].std()
-
-
-class MadridTestDataset(SnapShotDataset):
-    def __init__(self):
-        super(MadridTestDataset, self).__init__('../../data', 'madrid-test.npz')
-
-
-class MadridValidDataset(SnapShotDataset):
-    def __init__(self):
-        super(MadridValidDataset, self).__init__('../../data', 'madrid-val.npz')
-
-
-def PEMS_BAYGraphDataset():
-    if not os.path.exists('data/graph_bay.bin'):
-        if not os.path.exists('../../data'):
-            os.mkdir('../../data')
-        download_file('graph_bay.bin')
-    g, _ = dgl.load_graphs('data/graph_bay.bin')
-    return g[0]
-
-
-class PEMS_BAYTrainDataset(SnapShotDataset):
-    def __init__(self):
-        super(PEMS_BAYTrainDataset, self).__init__(
-            '../../data', 'pems_bay_train.npz')
-        self.mean = self.x[..., 0].mean()
-        self.std = self.x[..., 0].std()
-
-
-class PEMS_BAYTestDataset(SnapShotDataset):
-    def __init__(self):
-        super(PEMS_BAYTestDataset, self).__init__('../../data', 'pems_bay_test.npz')
-
-
-class PEMS_BAYValidDataset(SnapShotDataset):
-    def __init__(self):
-        super(PEMS_BAYValidDataset, self).__init__(
-            '../../data', 'pems_bay_valid.npz')

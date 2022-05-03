@@ -15,7 +15,7 @@ class NormalizationLayer(nn.Module):
         return (x-self.mean)/self.std
 
     def denormalize(self, x):
-        return x*self.std + self.mean
+        return x*self.std[0] + self.mean[0]
 
 
 def masked_mae_loss(y_pred, y_true):

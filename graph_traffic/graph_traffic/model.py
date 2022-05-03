@@ -1,12 +1,7 @@
 import numpy as np
-import scipy.sparse as sparse
 import torch
 import torch.nn as nn
-import dgl
-import dgl.nn as dglnn
 from dgl.base import DGLError
-import dgl.function as fn
-from dgl.nn.functional import edge_softmax
 
 
 class GraphGRUCell(nn.Module):
@@ -39,13 +34,17 @@ class GraphGRUCell(nn.Module):
         self.c_bias = nn.Parameter(torch.rand(out_feats))
 
     def forward(self, g, x, h):
+        # reset gate: how much of the past information to forget
         r = torch.sigmoid(self.r_net(
             g, torch.cat([x, h], dim=1)) + self.r_bias)
+        # update gate: how much of the past information needs to be passed along to the future
         u = torch.sigmoid(self.u_net(
             g, torch.cat([x, h], dim=1)) + self.u_bias)
+        # current memory content: store relevant information from the past
         h_ = r*h
-        c = torch.sigmoid(self.c_net(
+        c = torch.tanh(self.c_net(
             g, torch.cat([x, h_], dim=1)) + self.c_bias)
+        # final memory at current step
         new_h = u*h + (1-u)*c
         return new_h
 
@@ -187,7 +186,7 @@ class GraphRNN(nn.Module):
 
         self.decoder = StackedDecoder(self.in_feats,
                                       self.out_feats,
-                                      2,
+                                      self.in_feats,
                                       self.num_layers,
                                       self.net)
     # Threshold For Teacher Forcing
