@@ -301,30 +301,7 @@ def preprocessing_transformer(rain, wind, season, month, day_of_month, hour, int
 
 
 def transform_df(df: pd.DataFrame, rain, wind, season, month, day_of_month, hour, interactions):
-    # fill gaps in the date
-    dates = pd.date_range("2019-01-01", "2020-12-31", freq="15min")
-    df = df.set_index("fecha").reindex(dates).reset_index().rename(columns={"index": "date"})
-
-    # new features based on the calendar
-    df["year"] = df.date.dt.year
-    df["season"] = get_season(df.date)
-    df["month"] = df.date.dt.month
-    df["day_of_month"] = df.date.dt.day
-    df["day_type"] = day_type(df.date)
-    df["bank_holiday"] = df.date.dt.date.isin(bank_holidays)
-    df["working_day"] = (df.date.dt.weekday <= 4) & (~df.bank_holiday)
-    df["school_holiday"] = school_holidays(df.date) | (~df.working_day)
-    df["hour"] = df.date.dt.hour + df.date.dt.minute / 60
-    df["minute"] = df.date.dt.minute
-
-    # amount of wind to east and north
-    wv = df["velocidad_viento"]
-    wd_rad = df['dir_viento'] * np.pi / 180
-    df['windx'] = wv * np.cos(wd_rad)
-    df['windy'] = wv * np.sin(wd_rad)
-
     transformer = preprocessing_transformer(rain, wind, season, month, day_of_month, hour, interactions)
-
     df = transformer.fit_transform(df)
     df = np.nan_to_num(df)
     return df
