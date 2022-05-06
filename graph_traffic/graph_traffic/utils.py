@@ -6,16 +6,18 @@ import torch
 
 
 class NormalizationLayer(nn.Module):
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+    def __init__(self, minimum, maximum):
+        self.min = minimum
+        self.max = maximum
+        self.range = self.max - self.min
+        self.range[self.range == 0] = 1
 
     # Here we shall expect mean and std be scaler
     def normalize(self, x):
-        return (x-self.mean)/self.std
+        return (x - self.min) / self.range
 
     def denormalize(self, x):
-        return x*self.std[0] + self.mean[0]
+        return x*self.range[0] + self.min[0]
 
 
 def masked_mae_loss(y_pred, y_true):

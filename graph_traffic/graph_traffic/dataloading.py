@@ -66,7 +66,7 @@ class npzDataset(SnapShotDataset):
     def __init__(self, dataset, part, n_data_points=None):
         super(npzDataset, self).__init__(f'{dataset}-dataset', f'{dataset}_{part}.npz', n_data_points)
         if part == "train":
-            self.mean = np.nanmean(self.x, axis=(0, 1, 2))
-            self.std = np.nanstd(self.x, axis=(0, 1, 2))
-            self.std = np.where(self.std==0, 1, self.std)
+            self.min = np.nanmin(self.x, axis=(0, 1, 2))
+            self.max = np.nanmax(self.x, axis=(0, 1, 2))
+
 

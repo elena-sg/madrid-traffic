@@ -15,13 +15,18 @@ mmagns = ['temperatura', 'humedad_relativa', 'presion_barometrica', 'radiacion_s
 
 mapping = pd.read_csv(os.path.join(data_path, '03-by-location', 'id_mapping.csv'))
 
-def merge_data(id_t):
-    ids_m = mapping[mapping.id_t == id_t].iloc[0][[f'id_{magn}' for magn in mmagns]].astype(int)
 
+def merge_data(id_t, from_date=None, to_date=None):
+    ids_m = mapping[mapping.id_t == id_t].iloc[0][[f'id_{magn}' for magn in mmagns]].astype(int)
+    if from_date is None:
+        from_date = "2019-01-01"
+    if to_date is None:
+        to_date = "2021-12-31"
     # read traffic data
     dft = pd.read_csv(f'{traffic_path}/{id_t:0d}.csv', parse_dates=['fecha'], index_col='fecha')
+    dft = dft.loc[from_date:to_date]
     if dft.empty:
-        raise ValueError("No data for the provided id")
+        raise ValueError("No data for the provided id and time range")
     # read meteorological data
     dfm = {estacion: pd.read_csv(f'{meteo_path}/estacion-{estacion:.0f}.csv', parse_dates=['fecha'], index_col='fecha') for estacion in ids_m.unique()}
 
@@ -39,22 +44,22 @@ def merge_data(id_t):
     df = dft
     for m in mmagns:
         df = df.merge(dfm[ids_m[f"id_{m}"]][[m]],
-                     left_index=True, right_index=True,
-                    how='left')
+                      left_index=True, right_index=True,
+                      how='left')
 
     del dft, dfm
     df = df.sort_index()
     df[mmagns] = df[mmagns].interpolate(method="linear", limit=4)
 
     # fill gaps in the date
-    dates = pd.date_range("2019-01-01", "2020-12-31", freq="15min")
+    dates = pd.date_range(from_date, to_date, freq="15min")
     df = df.reindex(dates).reset_index().rename(columns={"index": "date"})
 
     # new features based on the calendar
     df["year"] = df.date.dt.year
     df["season"] = get_season(df.date)
     df["month"] = df.date.dt.month
-    df["week"] = df.date.dt.week
+    df["week"] = df.date.dt.isocalendar().week
     df["day_of_month"] = df.date.dt.day
     df["day_type"] = day_type(df.date)
     df["week_day"] = df.date.dt.weekday
@@ -69,5 +74,8 @@ def merge_data(id_t):
     wd_rad = df['dir_viento'] * np.pi / 180
     df['windx'] = wv * np.cos(wd_rad)
     df['windy'] = wv * np.sin(wd_rad)
+
+    # indicate if there is any null in the row
+    df["any_null"] = df.isnull().any(axis=1)
 
     return df
