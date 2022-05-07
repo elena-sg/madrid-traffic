@@ -150,12 +150,12 @@ def get_data(ids_list, seq_len, rain, wind, season, month, day_of_month, hour, i
         return arrx, arry, graph
 
 
-def plot_graph(graph, ids_list, save=False):
+def plot_graph(graph, ids_list, save_dir=None):
     _, ubs_dict = ubs_index(ids_list)
     labels_dict = {v: k for (k, v) in ubs_dict.items()}
     nx_G = graph.to_networkx()
     # Kamada-Kawaii layout usually looks pretty for arbitrary graphs
     pos = nx.kamada_kawai_layout(nx_G)
     nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 30, node_size=1500)
-    if save:
-        plt.savefig(f"{project_path}/plots/graph_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+    if save_dir is not None:
+        plt.savefig(f"{save_dir}/graph.svg")
