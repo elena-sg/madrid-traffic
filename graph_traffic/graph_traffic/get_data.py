@@ -109,28 +109,67 @@ def get_graph(ubs, ubs_dict):
     return graph_dataset
 
 
-def get_data(ids_list, seq_len, rain, wind, season, month, day_of_month, hour, interactions, with_graph, from_date,
-             to_date, dataset_name):
+# def get_data(ids_list, seq_len, rain, wind, temperature, humidity, pressure, radiation, season, month, day_of_month,
+#              hour, interactions, with_graph, from_date, to_date, dataset_name, target):
+def get_data(data_dict, meteo_dict, temporal_dict):
+    ids_list = data_dict["ids_list"]
+    from_date = data_dict["from_date"]
+    to_date = data_dict["to_date"]
+    target = data_dict["target"]
+    seq_len = data_dict["seq_len"]
+    dataset_name = data_dict["dataset_name"]
+    with_graph = data_dict["with_graph"]
     ubs, ubs_dict = ubs_index(ids_list)
 
-    data_dict = {}
-    for id in ids_list:
-        df = merge_data(id, from_date, to_date)
-        data_dict[id] = transform_df(df, rain, wind, season, month, day_of_month, hour, interactions)
+    mmagns = []
+    if meteo_dict["rain"] != "drop":
+        mmagns.append("precipitacion")
+    if meteo_dict["wind"] != "drop":
+        mmagns += ["dir_viento", "velocidad_viento"]
+    if meteo_dict["temperature"] != "drop":
+        mmagns.append("temperatura")
+    if meteo_dict["humidity"] != "drop":
+        mmagns.append("humedad_relativa")
+    if meteo_dict["pressure"] != "drop":
+        mmagns.append("presion_barometrica")
+    if meteo_dict["radiation"] != "drop":
+        mmagns.append("radiacion_solar")
 
-    n_rows = data_dict[id].shape[0]
-    n_features = data_dict[id].shape[1]
+    dates = pd.date_range(from_date, to_date, freq="15min")
+    dfs_dict = {}
+    for id in ids_list:
+        dfs_dict[id] = merge_data(id, from_date, to_date, target, mmagns, seq_len)
+        dates = dates.intersection(dfs_dict[id].date)
+
+    for id in ids_list:
+        df = dfs_dict[id]
+        df = df[df.date.isin(dates)]
+        dfs_dict[id] = transform_df(df, meteo_dict, temporal_dict, data_dict["interactions"], target)
+
+    #n_rows = dfs_dict[id].shape[0]
+    n_features = dfs_dict[id].shape[1]
+
+    right_time_gaps = (dates.to_series().diff().apply(lambda x: x.total_seconds() / 60) == 15).rolling(2*seq_len).sum() == 2*seq_len
+    right_time_gaps = right_time_gaps.shift(-2 * seq_len).fillna(False).reset_index(drop=True)
+    right_time_gaps = right_time_gaps[right_time_gaps].index.values
+
+    n_rows = len(right_time_gaps)
 
     arrx = np.full((n_rows, seq_len, len(ids_list), n_features), np.nan)
-    for sensor, df in data_dict.items():
+    arry = np.full((n_rows, seq_len, len(ids_list), n_features), np.nan)
+    for sensor, df in dfs_dict.items():
         graph_id = ubs_dict[sensor]
         dfi = pd.DataFrame(df)
-        for period in range(seq_len):
-            arrx[:, period, graph_id, :] = dfi.shift(-period).values
+        for i, timestamp in enumerate(right_time_gaps):
+            arrx[i, :, graph_id, :] = dfi.iloc[timestamp:timestamp+seq_len]
+            arry[i, :, graph_id, :] = dfi.iloc[timestamp+seq_len:timestamp + 2*seq_len]
+        # for period in range(seq_len):
+        #     arrx[:, period, graph_id, :] = dfi.iloc[right_time_gaps].shift(-period).values
+        #     arry[:, period, graph_id, :] = dfi.iloc[right_time_gaps].shift(-seq_len-period).values
 
-    arrx = arrx[:-seq_len]
-    arry = arrx[seq_len:]
-    arrx = arrx[:-seq_len]
+    #arrx = arrx[:-seq_len]
+    #arry = arrx[seq_len:]
+    #arrx = arrx[:-seq_len]
 
     data_size = arrx.shape[0]
 

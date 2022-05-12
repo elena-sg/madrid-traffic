@@ -9,21 +9,22 @@ traffic_path = os.path.join(data_path, "03-by-location", "traffic")
 meteo_path = os.path.join(data_path, "03-by-location", "meteo")
 
 
-tmagns = ['intensidad', 'ocupacion', 'vmed']
-mmagns = ['temperatura', 'humedad_relativa', 'presion_barometrica', 'radiacion_solar',
-          'precipitacion', 'dir_viento', 'velocidad_viento']
+#tmagns = ['intensidad', 'ocupacion', 'vmed']
+# mmagns = ['temperatura', 'humedad_relativa', 'presion_barometrica', 'radiacion_solar',
+#           'precipitacion', 'dir_viento', 'velocidad_viento']
 
 mapping = pd.read_csv(os.path.join(data_path, '03-by-location', 'id_mapping.csv'))
 
 
-def merge_data(id_t, from_date=None, to_date=None):
+def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[], seq_len=1):
     ids_m = mapping[mapping.id_t == id_t].iloc[0][[f'id_{magn}' for magn in mmagns]].astype(int)
     if from_date is None:
         from_date = "2019-01-01"
     if to_date is None:
         to_date = "2021-12-31"
     # read traffic data
-    dft = pd.read_csv(f'{traffic_path}/{id_t:0d}.csv', parse_dates=['fecha'], index_col='fecha')
+    dft = pd.read_csv(f'{traffic_path}/{id_t:0d}.csv', parse_dates=['fecha'], index_col='fecha',
+                      usecols=["fecha", "id", target])
     dft = dft.loc[from_date:to_date]
     if dft.empty:
         raise ValueError("No data for the provided id and time range")
@@ -31,8 +32,10 @@ def merge_data(id_t, from_date=None, to_date=None):
     dfm = {estacion: pd.read_csv(f'{meteo_path}/estacion-{estacion:.0f}.csv', parse_dates=['fecha'], index_col='fecha') for estacion in ids_m.unique()}
 
     # Si hay más de 4 filas sin cambio, damos el valor por nulo
-    dft[tmagns] = dft[tmagns].apply(make_stable_values_null, nrows=4)
+    dft[[target]] = dft[[target]].apply(make_stable_values_null, nrows=4).dropna()
     for estacion, dfmi in dfm.items():
+        # since we want to predict, we want the future values of the meteorological features
+        dfmi.index = dfmi.index - pd.DateOffset(minutes=seq_len*15)
         nm = dfmi[mmagns].apply(rows_no_change)
         for m in mmagns:
             if m in ['precipitacion', 'radiacion_solar', 'presion_barometrica']:
@@ -51,9 +54,16 @@ def merge_data(id_t, from_date=None, to_date=None):
     df = df.sort_index()
     df[mmagns] = df[mmagns].interpolate(method="linear", limit=4)
 
+    df = df.reset_index().rename(columns={"fecha": "date"}).dropna()
+
+    #df["time_gap"] = df.dropna().index.to_series().diff().iloc[1:].apply(lambda x: x.total_seconds() / 60)
+    #df["last_in_sequence"] = df["time_gap"] > 15  # this point can only be
+
+    #df = df.dropna()
+
     # fill gaps in the date
-    dates = pd.date_range(from_date, to_date, freq="15min")
-    df = df.reindex(dates).reset_index().rename(columns={"index": "date"})
+    #dates = pd.date_range(from_date, to_date, freq="15min")
+    #df = df.reindex(dates).reset_index().rename(columns={"index": "date"})
 
     # new features based on the calendar
     df["year"] = df.date.dt.year
@@ -70,12 +80,13 @@ def merge_data(id_t, from_date=None, to_date=None):
     df["minute"] = df.date.dt.minute
 
     # amount of wind to east and north
-    wv = df["velocidad_viento"]
-    wd_rad = df['dir_viento'] * np.pi / 180
-    df['windx'] = wv * np.cos(wd_rad)
-    df['windy'] = wv * np.sin(wd_rad)
+    if "velocidad_viento" in mmagns:
+        wv = df["velocidad_viento"]
+        wd_rad = df['dir_viento'] * np.pi / 180
+        df['windx'] = wv * np.cos(wd_rad)
+        df['windy'] = wv * np.sin(wd_rad)
 
     # indicate if there is any null in the row
-    df["any_null"] = df.isnull().any(axis=1)
+    #df["any_null"] = df.isnull().any(axis=1)
 
     return df
