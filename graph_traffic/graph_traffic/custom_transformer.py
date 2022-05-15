@@ -219,7 +219,7 @@ def periodic_spline_transformer(period, n_splines=None, degree=3):
 
 
 def temp_transformer(approach, period):
-    if approach == "numeric":
+    if approach == "passthrough":
         return "passthrough"
     elif approach == "one_hot":
         return OneHotEncoder(handle_unknown="ignore", sparse=False)
