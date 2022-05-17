@@ -58,7 +58,7 @@ class RepeatRegressor(BaseEstimator):
         # Check if fit has been called
         check_is_fitted(self)
 
-        return X[:, :, :, [0]]
+        return X[..., [0]]
 
 
 class RepeatLastRegressor(BaseEstimator):
@@ -73,7 +73,7 @@ class RepeatLastRegressor(BaseEstimator):
         # Check if fit has been called
         check_is_fitted(self)
 
-        last_values = np.repeat([X[:, -1, :, 0]], 4, axis=0)
+        last_values = np.repeat([X[..., -1, :, 0]], 4, axis=0)
         last_values_moved = np.moveaxis(last_values, [0, 1, 2], [1, 0, 2])
 
         return np.expand_dims(last_values_moved, axis=3)
@@ -86,7 +86,8 @@ class DaytimeRegressor(BaseEstimator):
         self.by_working_day = by_working_day
 
     def fit(self, X, y):
-        x_train_by_sensor = X.reshape(3, -1, 2+1*self.by_working_day)
+        new_x = np.concatenate([y[..., [0]], X[..., 1:]], axis=3)
+        x_train_by_sensor = new_x.reshape(3, -1, 2+1*self.by_working_day)
         if not self.by_working_day:
             df = pd.DataFrame([], index=np.linspace(0, 23.75, 24 * 4), columns=range(X.shape[2]))
             for sensor in range(X.shape[2]):

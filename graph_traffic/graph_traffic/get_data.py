@@ -175,9 +175,9 @@ def get_data(data_dict, meteo_dict, temporal_dict):
 
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_dataset.npz", x=arrx, y=arry)
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_train.npz",
-             x=arrx[:int(0.6 * data_size)], y=arry[:int(0.6 * data_size)])
-    np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_valid.npz",
-             x=arrx[int(0.6 * data_size):int(0.8 * data_size)], y=arry[int(0.6 * data_size):int(0.8 * data_size)])
+             x=arrx[:int(0.8 * data_size)], y=arry[:int(0.8 * data_size)])
+    # np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_valid.npz",
+    #          x=arrx[int(0.6 * data_size):int(0.8 * data_size)], y=arry[int(0.6 * data_size):int(0.8 * data_size)])
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_test.npz",
              x=arrx[int(0.8 * data_size):], y=arry[int(0.8 * data_size):])
 
