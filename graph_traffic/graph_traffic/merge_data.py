@@ -35,7 +35,7 @@ def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[
     dft[[target]] = dft[[target]].apply(make_stable_values_null, nrows=4).dropna()
     for estacion, dfmi in dfm.items():
         # since we want to predict, we want the future values of the meteorological features
-        dfmi.index = dfmi.index - pd.DateOffset(minutes=seq_len*15)
+        dfmi.index = dfmi.index# - pd.DateOffset(minutes=seq_len*15)
         nm = dfmi[mmagns].apply(rows_no_change)
         for m in mmagns:
             if m in ['precipitacion', 'radiacion_solar', 'presion_barometrica']:
@@ -72,7 +72,7 @@ def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[
     df["week"] = df.date.dt.isocalendar().week
     df["day_of_month"] = df.date.dt.day
     df["day_type"] = day_type(df.date)
-    df["week_day"] = df.date.dt.weekday
+    df["weekday"] = df.date.dt.weekday
     df["bank_holiday"] = df.date.dt.date.isin(bank_holidays)
     df["working_day"] = (df.date.dt.weekday <= 4) & (~df.bank_holiday)
     df["school_holiday"] = school_holidays(df.date) | (~df.working_day)

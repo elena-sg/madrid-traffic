@@ -281,6 +281,18 @@ passthrough_columns = ["intensidad", "temperatura", "humedad_relativa", "presion
 def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
     bool_columns = [k for (k, v) in temporal_dict.items() if k in all_bool_columns and v!="drop"]
     transformers = [("target", "passthrough", [target])]
+
+    transformers += [
+        ("hour", hour_transformer(temporal_dict["hour"]), ["hour"]),
+        ("bool", OrdinalEncoder(categories=[[False, True]] * len(bool_columns)), bool_columns),
+        ("year", temporal_dict["year"], ["year"]),
+        ("season", season_transformer.get(temporal_dict["season"]), ["season"]),
+        ("month", temp_transformer(temporal_dict["month"], period_dict["month"]), ["month"]),
+        ("day_of_month", temp_transformer(temporal_dict["day_of_month"], period_dict["day_of_month"]), ["day_of_month"]),
+        ("weekday", temporal_dict["weekday"], ["weekday"]),
+        ("minute", temp_transformer(temporal_dict["minute"], 4), ["minute"]),
+    ]
+
     if meteo_dict["rain"] != "drop":
         transformers.append(("rain", rain_transformer.get(meteo_dict["rain"]), ["precipitacion"]))
     if meteo_dict["wind"] != "drop":
@@ -294,14 +306,7 @@ def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
     if meteo_dict["radiation"] != "drop":
         transformers.append(("radiation", meteo_dict["radiation"], ["radiacion_solar"]))
 
-    transformers += [
-        ("season", season_transformer.get(temporal_dict["season"]), ["season"]),
-        ("month", temp_transformer(temporal_dict["month"], period_dict["month"]), ["month"]),
-        ("day_of_month", temp_transformer(temporal_dict["day_of_month"], period_dict["day_of_month"]), ["day_of_month"]),
-        ("hour", hour_transformer(temporal_dict["hour"]), ["hour"]),
-        ("minute", temp_transformer(temporal_dict["minute"], 4), ["minute"]),
-        ("bool", OrdinalEncoder(categories=[[False, True]] * len(bool_columns)), bool_columns),
-    ]
+
     step1 = ColumnTransformer(transformers=transformers)
     if interactions == "poly":
         return FeatureUnion([

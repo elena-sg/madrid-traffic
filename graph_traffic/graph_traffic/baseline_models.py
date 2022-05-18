@@ -73,7 +73,9 @@ class RepeatLastRegressor(BaseEstimator):
         # Check if fit has been called
         check_is_fitted(self)
 
-        last_values = np.repeat([X[..., -1, :, 0]], 4, axis=0)
+        seq_len = X.shape[1]
+
+        last_values = np.repeat([X[..., -1, :, 0]], seq_len, axis=0)
         last_values_moved = np.moveaxis(last_values, [0, 1, 2], [1, 0, 2])
 
         return np.expand_dims(last_values_moved, axis=3)
