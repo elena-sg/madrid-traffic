@@ -88,10 +88,12 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len):
     plt.show()
 
 
-def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, seq_len):
+def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, seq_len, features_from_index=3):
     _, ubs_dict = ubs_index(ids_list)
-    fig, ax = plt.subplots(len(ids_list), len(random_samples), figsize=(25, 10), sharex="col",
+    fig, ax = plt.subplots(len(ids_list), len(random_samples), figsize=(25, 5*len(ids_list)), sharex="col",
                            sharey="row")
+    if len(ids_list) == 1:
+        ax = [ax]
     for i, sample in enumerate(random_samples):
         past_timestamps = np.copy(x[sample][..., 0, 1])
         for j, t in enumerate(past_timestamps[1:]):
@@ -102,25 +104,45 @@ def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, s
 
         for sensor in ids_list:
             sensor_id = ubs_dict[sensor]
-            x_features = x[sample][:, sensor_id, 1:]
-            y_features = y[sample][:, sensor_id, 1:]
+            x_features = x[sample][:, sensor_id, features_from_index:]
+            y_features = y[sample][:, sensor_id, features_from_index:]
             features = np.concatenate([x_features, y_features], axis=0)
             x_target = x[sample][:, sensor_id, 0]
             y_target = y[sample][:, sensor_id, 0]
             true_values = np.concatenate([x_target, y_target])
             # preds_sensor = estimator.predict(x[sample][:, sensor, 1:]).ravel()
             preds_sensor = estimators[sensor_id].predict(features).ravel()
-            ax[sensor_id, i].plot(timestamps, true_values, label='True values', marker='.', zorder=-10)
+            ax[sensor_id][i].plot(timestamps, true_values, label='True values', marker='.', zorder=-10)
             # ax[sensor, i].scatter(past_timestamps, x_target[:seq_len], marker='X', edgecolors='k', label='Inputs',
             #                       c='#2ca02c', s=64)
-            ax[sensor_id, i].scatter(timestamps, preds_sensor, marker='X', edgecolors='k', label='Predictions',
+            ax[sensor_id][i].scatter(timestamps, preds_sensor, marker='X', edgecolors='k', label='Predictions',
                                   c='#ff7f0e', s=64)
 
             if i == 0:
-                ax[sensor_id, i].set_ylabel(f"Cars/hour, sensor {sensor}")
+                ax[sensor_id][i].set_ylabel(f"Cars/hour, sensor {sensor}")
             if sensor_id == len(ids_list) - 1:
-                ax[sensor_id, i].set_xticks(timestamps, [f"{t % 24:.0f}" for t in timestamps])
-                ax[sensor_id, i].set_xlabel(f"Sample number {i}, hour")
-                ax[sensor_id, i].xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax[sensor_id][i].set_xticks(timestamps, [f"{t % 24:.0f}" for t in timestamps])
+                ax[sensor_id][i].set_xlabel(f"Sample number {i}, hour")
+                ax[sensor_id][i].xaxis.set_major_locator(MaxNLocator(integer=True))
     plt.legend()
     plt.show()
+
+
+def train_estimators_by_sensor(ids_list, train_x, pipeline):
+    estimators = {}
+    _, ubs_dict = ubs_index(ids_list)
+    for sensor in ids_list:
+        i = ubs_dict[sensor]
+        train_flat = train_x[:, :, i, :].reshape(-1, train_x.shape[-1])
+        _, index = np.unique(train_flat, axis=0, return_index=True)
+        index = np.sort(index)
+        train_flat = train_flat[index]
+        train_x_flat = train_flat[:, 3:]
+        train_y_flat = train_flat[:, 0].ravel()
+        estimator, train_losses, test_losses = timeseries_cv(
+            pipeline,
+            train_x_flat, train_y_flat, with_previous_timesteps=False)
+        print(np.mean(train_losses), np.mean(test_losses))
+        estimators[i] = estimator
+
+    return estimators

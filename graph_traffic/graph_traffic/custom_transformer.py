@@ -177,7 +177,7 @@ season_transformer = dict(
 
 # Boolean columns
 all_bool_columns = ["bank_holiday", "working_day", "school_holiday"]
-#bool_categories = [[False, True]] * len(bool_columns)
+# bool_categories = [[False, True]] * len(bool_columns)
 
 # Temporal columns: month, day, hour, minute
 # Possibilities: numeric, one_hot, trigonometric, spline
@@ -186,7 +186,9 @@ period_dict = dict(
     month=12,
     day_of_month=31,
     hour=24,
-    minute=60,
+    minute=4,
+    season=4,
+    weekday=7
 )
 
 
@@ -217,12 +219,23 @@ def periodic_spline_transformer(period, n_splines=None, degree=3):
         include_bias=True,
     )
 
+def get_temp_categories(dim):
+    if dim == "weekday":
+        return list(range(1, 8))
+    elif dim == "minute":
+        return [0, 15, 30, 45]
+    elif dim == "hour":
+        return list(range(24))
+    elif dim == "month":
+        return list(range(1, 13))
+    elif dim == "day_of_month":
+        return list(range(1, 32))
 
-def temp_transformer(approach, period):
+def temp_transformer(approach, period, dim):
     if approach == "passthrough":
         return "passthrough"
     elif approach == "one_hot":
-        return OneHotEncoder(handle_unknown="ignore", sparse=False)
+        return OneHotEncoder(handle_unknown="ignore", sparse=False, categories=[get_temp_categories(dim)])
     elif approach == "trigonometric":
         return sincos(period)
     elif approach == "spline":
@@ -235,62 +248,127 @@ def hour_transformer(approach):
     if approach == "one_hot":
         return make_pipeline(
             KBinsDiscretizer(n_bins=24, encode="ordinal"),
-            temp_transformer(approach, period_dict["hour"])
+            temp_transformer(approach, period_dict["hour"], "hour")
         )
     else:
-        return temp_transformer(approach, period_dict["hour"])
+        return temp_transformer(approach, period_dict["hour"], "hour")
+
+
+
+def temp_categorical(dim, approach):
+    if approach in ["passthrough", "drop"]:
+        return approach
+    elif approach == "one_hot":
+        return OneHotEncoder(handle_unknown="ignore", sparse=False,
+                          categories=[get_temp_categories(dim)])
 
 
 def hour_workday_interaction(hora):
     return make_pipeline(
         ColumnTransformer([
-            ("marginal", hour_transformer(hora), ["hora"]),
-            ("workingday", FunctionTransformer(lambda x: x == True), ["dia_laborable"])
+            ("hour", hour_transformer(hora), ["hour"]),
+            ("is_workingday", FunctionTransformer(lambda x: x == True), ["working_day"])
         ]),
         PolynomialFeatures(degree=2, interaction_only=True, include_bias=False),
+        ColumnTransformer([
+            ("marginal", "drop", list(range(period_dict["hour"]+1))),
+            # select only hour*working_day (not the marginal columns, since we already have them)
+        ], remainder="passthrough")
     )
 
 
 columns_viento = dict(xy=["windx", "windy"], wind_speed=["velocidad_viento"])
 
-passthrough_columns = ["intensidad", "temperatura", "humedad_relativa", "presion_barometrica", "radiacion_solar"]
+rain_columns = dict(
+    one_hot=[f"rain_{i + 1}" for i in range(3)],
+    ordinal=["rain"],
+    numerico_power=["rain"],
+    numerico_quantile_uniform=["rain"],
+    numerico_quantile_normal=["rain"],
+    drop=[]
+)
+
+wind_columns = dict(
+    xy=["windx", "windy"],
+    wind_speed=["wind_speed"],
+    drop=[]
+)
 
 
-# feature engineering possibilities for each feature
-# intensidad: passthrough
-# temperatura: passthrough
-# humedad_relativa: passtrough
-# presion_barometrica: passthrough
-# radiacion_solar: passthrough
-# precipitacion/rain: one_hot, ordinal, numeric_power, numeric_quantile_uniform, numeric_quantile_normal
-# viento/wind: xy, wind_speed
-# year: one_hot
-# season: one_hot, ordinal
-# month: numeric, one_hot, trigonometric, spline
-# day_of_month: numeric, one_hot, trigonometric, spline
-# bank_holiday: bool
-# working_day: bool
-# school_holidays: bool
-# hour: numeric, one_hot, trigonometric, spline
-# minute: numeric, one_hot, trigonometric, spline
-# interactions: poly, kernel, False
+def get_temp_column_names(dimension, approach):
+    if approach in ["passthrough", "ordinal"]:
+        return [dimension]
+    elif approach == "one_hot":
+        return [f"{dimension}_{i + 1}" for i in range(period_dict[dimension])]
+    elif approach == "spline":
+        return [f"{dimension}_{i + 1}" for i in range(period_dict[dimension] // 2)]
+    elif approach == "drop":
+        return []
+    elif approach == "trigonometric":
+        return [f"sin_{dimension}", f"cos_{dimension}"]
+
+def get_interactions_columns(interactions, hour_approach):
+    if interactions == "drop":
+        return []
+    elif interactions == "poly":
+        return [f"interaction_{i}" for i in range(len(get_temp_column_names("hour", hour_approach)))]
 
 
-# def preprocessing_transformer(rain, wind, temperature, humidity, pressure, radiation, season, month,
-#                  day_of_month, hour, interactions):
+def get_column_names(meteo_dict, temporal_dict, interactions, target):
+    if interactions == "kernel":
+        return [target, "hour", "working_day"] + [f"c{i + 1}" for i in range(300)]
+    column_names = [target, "hour", "working_day"]
+    column_names += get_temp_column_names("hour", temporal_dict["hour"])
+    column_names += [c for c in all_bool_columns if temporal_dict[c] == "passthrough"]
+    column_names += get_temp_column_names("year", temporal_dict["year"])
+    column_names += get_temp_column_names("season", temporal_dict["season"])
+    column_names += get_temp_column_names("month", temporal_dict["month"])
+    column_names += get_temp_column_names("day_of_month", temporal_dict["day_of_month"])
+    column_names += get_temp_column_names("weekday", temporal_dict["weekday"])
+    column_names += get_temp_column_names("minute", temporal_dict["minute"])
+    column_names += rain_columns[meteo_dict["rain"]]
+    column_names += wind_columns[meteo_dict["wind"]]
+    column_names += [dim for dim in ["temperature", "humidity", "pressure", "radiation"] if
+                     meteo_dict[dim] == "passthrough"]
+    column_names += get_interactions_columns(interactions, temporal_dict["hour"])
+    return column_names
+
+
+# hour: passthrough, one_hot, trigonometric, spline, drop
+# bank_holiday: passthrough, drop
+# working_day: passthrough, drop
+# school_holiday: passthrough, drop
+# year: passthrough, drop, one_hot
+# season: one_hot, ordinal, drop
+# month: passthrough, one_hot, trigonometric, spline, drop
+# day_of_month: passthrough, one_hot, trigonometric, spline, drop
+# weekday: passthrough, drop, one_hot
+# minute: passthrough, drop, one_hot
+# rain: one_hot, ordinal, numerico_power, numerico_quantile_uniform, numerico_quantile_normal, drop
+# wind: xy, windspeed, drop
+# temperature: passthrough, drop
+# humidity: passthrough, drop
+# pressure: passthrough, drop
+# radiation: passthrough, drop
+# interactions: poly, kernel, drop
+
+
 def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
-    bool_columns = [k for (k, v) in temporal_dict.items() if k in all_bool_columns and v!="drop"]
+    # bool_columns = [k for (k, v) in temporal_dict.items() if k in all_bool_columns and v!="drop"]
+    bool_columns = [c for c in all_bool_columns if temporal_dict[c] == "passthrough"]
     transformers = [("target", "passthrough", [target])]
-
+    n_columns_before_interactions = len(get_column_names(meteo_dict, temporal_dict, "drop", target))
     transformers += [
-        ("hour", hour_transformer(temporal_dict["hour"]), ["hour"]),
+        ("hour", "passthrough", ["hour"]),
+        ("workingday", OrdinalEncoder(categories=[[False, True]]), ["working_day"]),
+        ("hour_transformed", hour_transformer(temporal_dict["hour"]), ["hour"]),
         ("bool", OrdinalEncoder(categories=[[False, True]] * len(bool_columns)), bool_columns),
-        ("year", temporal_dict["year"], ["year"]),
+        ("year", temp_categorical("year", temporal_dict["year"]), ["year"]),
         ("season", season_transformer.get(temporal_dict["season"]), ["season"]),
-        ("month", temp_transformer(temporal_dict["month"], period_dict["month"]), ["month"]),
-        ("day_of_month", temp_transformer(temporal_dict["day_of_month"], period_dict["day_of_month"]), ["day_of_month"]),
-        ("weekday", temporal_dict["weekday"], ["weekday"]),
-        ("minute", temp_transformer(temporal_dict["minute"], 4), ["minute"]),
+        ("month", temp_transformer(temporal_dict["month"], period_dict["month"], "month"), ["month"]),
+        ("day_of_month", temp_transformer(temporal_dict["day_of_month"], period_dict["day_of_month"], "day_of_month"), ["day_of_month"]),
+        ("weekday", temp_categorical("weekday", temporal_dict["weekday"]), ["weekday"]),
+        ("minute", temp_categorical("minute", temporal_dict["minute"]), ["minute"]),
     ]
 
     if meteo_dict["rain"] != "drop":
@@ -306,8 +384,14 @@ def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
     if meteo_dict["radiation"] != "drop":
         transformers.append(("radiation", meteo_dict["radiation"], ["radiacion_solar"]))
 
-
     step1 = ColumnTransformer(transformers=transformers)
+
+    kernel_transformer = ColumnTransformer([
+        ("target", "passthrough", [0, 1]),
+        ("interactions", Nystroem(kernel="poly", degree=2, n_components=300, random_state=0),
+         list(range(1, n_columns_before_interactions)))  # all columns different to the target
+    ])
+
     if interactions == "poly":
         return FeatureUnion([
             ("marginal", step1),
@@ -316,7 +400,7 @@ def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
     elif interactions == "kernel":
         return make_pipeline(
             step1,
-            Nystroem(kernel="poly", degree=2, n_components=300, random_state=0)
+            kernel_transformer
         )
     else:
         return step1
@@ -325,5 +409,5 @@ def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
 def transform_df(df, meteo_dict, temporal_dict, interactions, target):
     transformer = preprocessing_transformer(meteo_dict, temporal_dict, interactions, target)
     df = transformer.fit_transform(df)
-    #df = np.nan_to_num(df)
+    # df = np.nan_to_num(df)
     return df
