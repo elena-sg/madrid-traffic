@@ -34,7 +34,6 @@ def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[
     # Si hay más de 4 filas sin cambio, damos el valor por nulo
     dft[[target]] = dft[[target]].apply(make_stable_values_null, nrows=4).dropna()
     for estacion, dfmi in dfm.items():
-        # since we want to predict, we want the future values of the meteorological features
         dfmi.index = dfmi.index# - pd.DateOffset(minutes=seq_len*15)
         nm = dfmi[mmagns].apply(rows_no_change)
         for m in mmagns:

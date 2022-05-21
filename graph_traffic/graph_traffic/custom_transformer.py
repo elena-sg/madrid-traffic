@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.pipeline import make_pipeline, FeatureUnion
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, OrdinalEncoder, PowerTransformer, \
     QuantileTransformer, SplineTransformer, KBinsDiscretizer, PolynomialFeatures
+from math import floor
 
 # read calendar data to add calendar-related features
 cal = pd.read_csv(f"{data_path}/03-by-location/calendario.csv", sep=';')
@@ -192,19 +193,20 @@ period_dict = dict(
 )
 
 
-def sin_transformer(period):
-    return FunctionTransformer(lambda x: np.sin(x / period * 2 * np.pi))
+def sin_transformer(period, n):
+    return FunctionTransformer(lambda x: np.sin(x / period * 2 * n * np.pi))
 
 
-def cos_transformer(period):
-    return FunctionTransformer(lambda x: np.cos(x / period * 2 * np.pi))
+def cos_transformer(period, n):
+    return FunctionTransformer(lambda x: np.cos(x / period * 2 * n * np.pi))
 
 
-def sincos(period):
-    return FeatureUnion([
-        ("sin", sin_transformer(period)),
-        ("cos", cos_transformer(period))
-    ])
+def sincos(period, n_variables=1):
+    features = []
+    for i in range(1, n_variables+1)
+        features += [("sin", sin_transformer(period, n=i)),
+                     ("cos", cos_transformer(period, n=i))]
+    return FeatureUnion(features)
 
 
 def periodic_spline_transformer(period, n_splines=None, degree=3):
@@ -236,8 +238,12 @@ def temp_transformer(approach, period, dim):
         return "passthrough"
     elif approach == "one_hot":
         return OneHotEncoder(handle_unknown="ignore", sparse=False, categories=[get_temp_categories(dim)])
-    elif approach == "trigonometric":
-        return sincos(period)
+    elif approach.startswith("fourier"):
+        if "_" in approach:
+            n_variables = int(approach.split("_")[-1])
+        else:
+            n_variables = 1
+        return sincos(period, n_variables=n_variables)
     elif approach == "spline":
         return periodic_spline_transformer(period, n_splines=period // 2)
     elif approach == "drop":
@@ -247,7 +253,8 @@ def temp_transformer(approach, period, dim):
 def hour_transformer(approach):
     if approach == "one_hot":
         return make_pipeline(
-            KBinsDiscretizer(n_bins=24, encode="ordinal"),
+            #KBinsDiscretizer(n_bins=24, encode="ordinal"),
+            FunctionTransformer(np.floor),
             temp_transformer(approach, period_dict["hour"], "hour")
         )
     else:
@@ -299,13 +306,20 @@ def get_temp_column_names(dimension, approach):
     if approach in ["passthrough", "ordinal"]:
         return [dimension]
     elif approach == "one_hot":
-        return [f"{dimension}_{i + 1}" for i in range(period_dict[dimension])]
+        return [f"{dimension}_{i + (dimension!='hour')*1}" for i in range(period_dict[dimension])]
     elif approach == "spline":
         return [f"{dimension}_{i + 1}" for i in range(period_dict[dimension] // 2)]
     elif approach == "drop":
         return []
-    elif approach == "trigonometric":
-        return [f"sin_{dimension}", f"cos_{dimension}"]
+    elif approach.startswith("fourier"):
+        if "_" in approach:
+            n_variables = int(approach.split("_")[-1])
+        else:
+            n_variables = 1
+        names = []
+        for i in range(n_variables):
+            names += [f"sin_{dimension}_{i}", f"cos_{dimension}_{i}"]
+        return  names
 
 def get_interactions_columns(interactions, hour_approach):
     if interactions == "drop":
@@ -334,14 +348,14 @@ def get_column_names(meteo_dict, temporal_dict, interactions, target):
     return column_names
 
 
-# hour: passthrough, one_hot, trigonometric, spline, drop
+# hour: passthrough, one_hot, fourier, spline, drop
 # bank_holiday: passthrough, drop
 # working_day: passthrough, drop
 # school_holiday: passthrough, drop
 # year: passthrough, drop, one_hot
 # season: one_hot, ordinal, drop
-# month: passthrough, one_hot, trigonometric, spline, drop
-# day_of_month: passthrough, one_hot, trigonometric, spline, drop
+# month: passthrough, one_hot, fourier, spline, drop
+# day_of_month: passthrough, one_hot, fourier, spline, drop
 # weekday: passthrough, drop, one_hot
 # minute: passthrough, drop, one_hot
 # rain: one_hot, ordinal, numerico_power, numerico_quantile_uniform, numerico_quantile_normal, drop
