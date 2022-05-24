@@ -203,9 +203,9 @@ def cos_transformer(period, n):
 
 def sincos(period, n_variables=1):
     features = []
-    for i in range(1, n_variables+1)
-        features += [("sin", sin_transformer(period, n=i)),
-                     ("cos", cos_transformer(period, n=i))]
+    for i in range(1, n_variables+1):
+        features += [(f"sin_{i}", sin_transformer(period, n=i)),
+                     (f"cos_{i}", cos_transformer(period, n=i))]
     return FeatureUnion(features)
 
 
@@ -244,8 +244,12 @@ def temp_transformer(approach, period, dim):
         else:
             n_variables = 1
         return sincos(period, n_variables=n_variables)
-    elif approach == "spline":
-        return periodic_spline_transformer(period, n_splines=period // 2)
+    elif approach.startswith("spline"):
+        if "_" in approach:
+            n_splines = int(approach.split("_")[-1])
+        else:
+            n_splines = period // 2
+        return periodic_spline_transformer(period, n_splines=n_splines)
     elif approach == "drop":
         return approach
 
@@ -307,8 +311,12 @@ def get_temp_column_names(dimension, approach):
         return [dimension]
     elif approach == "one_hot":
         return [f"{dimension}_{i + (dimension!='hour')*1}" for i in range(period_dict[dimension])]
-    elif approach == "spline":
-        return [f"{dimension}_{i + 1}" for i in range(period_dict[dimension] // 2)]
+    elif approach.startswith("spline"):
+        if "_" in approach:
+            n_splines = int(approach.split("_")[-1])
+        else:
+            n_splines = period_dict[dimension] // 2
+        return [f"{dimension}_{i + 1}" for i in range(n_splines)]
     elif approach == "drop":
         return []
     elif approach.startswith("fourier"):
@@ -318,8 +326,8 @@ def get_temp_column_names(dimension, approach):
             n_variables = 1
         names = []
         for i in range(n_variables):
-            names += [f"sin_{dimension}_{i}", f"cos_{dimension}_{i}"]
-        return  names
+            names += [f"sin_{dimension}_{i+1}", f"cos_{dimension}_{i+1}"]
+        return names
 
 def get_interactions_columns(interactions, hour_approach):
     if interactions == "drop":

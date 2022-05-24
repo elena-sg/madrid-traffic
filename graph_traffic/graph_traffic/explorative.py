@@ -65,7 +65,7 @@ def describe_magnitude(subfig, id, target):
 
 
 def describe_all_magnitudes(id):
-    fig = plt.figure(figsize=(15, len(targets)*3))
+    fig = plt.figure(figsize=(15, len(targets)*2))
     fig.suptitle('Figure title')
 
     # create 3x1 subfigs
