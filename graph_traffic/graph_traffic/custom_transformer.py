@@ -167,6 +167,7 @@ rain_transformer = dict(
     numerico_power=PowerTransformer(method='yeo-johnson'),
     numerico_quantile_uniform=QuantileTransformer(output_distribution="uniform"),
     numerico_quantile_normal=QuantileTransformer(output_distribution="normal"),
+    passthrough="passthrough"
 )
 
 # Season
@@ -232,6 +233,8 @@ def get_temp_categories(dim):
         return list(range(1, 13))
     elif dim == "day_of_month":
         return list(range(1, 32))
+    elif dim == "year":
+        return [2019, 2020, 2021]
 
 def temp_transformer(approach, period, dim):
     if approach == "passthrough":
@@ -296,7 +299,8 @@ rain_columns = dict(
     numerico_power=["rain"],
     numerico_quantile_uniform=["rain"],
     numerico_quantile_normal=["rain"],
-    drop=[]
+    drop=[],
+    passthrough=["rain"]
 )
 
 wind_columns = dict(
@@ -310,6 +314,8 @@ def get_temp_column_names(dimension, approach):
     if approach in ["passthrough", "ordinal"]:
         return [dimension]
     elif approach == "one_hot":
+        if dimension == "year":
+            return [f"{dimension}_{i + (dimension != 'hour') * 1}" for i in range(3)]
         return [f"{dimension}_{i + (dimension!='hour')*1}" for i in range(period_dict[dimension])]
     elif approach.startswith("spline"):
         if "_" in approach:
@@ -366,8 +372,8 @@ def get_column_names(meteo_dict, temporal_dict, interactions, target):
 # day_of_month: passthrough, one_hot, fourier, spline, drop
 # weekday: passthrough, drop, one_hot
 # minute: passthrough, drop, one_hot
-# rain: one_hot, ordinal, numerico_power, numerico_quantile_uniform, numerico_quantile_normal, drop
-# wind: xy, windspeed, drop
+# rain: one_hot, ordinal, numerico_power, numerico_quantile_uniform, numerico_quantile_normal, drop, passthrough
+# wind: xy, wind_speed, drop
 # temperature: passthrough, drop
 # humidity: passthrough, drop
 # pressure: passthrough, drop

@@ -12,10 +12,10 @@ mpl.rcParams.update({'font.size': 12})
 
 
 def timeseries_cv(estimator, x, y, with_previous_timesteps=True, with_alpha=False):
-    seq_len = x.shape[1]
+    #seq_len = x.shape[1]
     ts_cv = TimeSeriesSplit(
         n_splits=3,
-        gap=seq_len
+        #gap=seq_len
     )
     all_splits = list(ts_cv.split(x, y))
 
@@ -151,11 +151,12 @@ def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, s
     plt.show()
 
 
-def train_estimators_by_sensor(ids_list, train_x, pipeline):
+def train_estimators_by_sensor(ids_list, train_x, pipeline, with_alphas=False, for_model_selection=False):
     estimators = {}
     _, ubs_dict = ubs_index(ids_list)
     train_losses = dict()
     test_losses = dict()
+    alphas = dict()
     for sensor in ids_list:
         i = ubs_dict[sensor]
         train_flat = train_x[:, :, i, :].reshape(-1, train_x.shape[-1])
@@ -164,9 +165,21 @@ def train_estimators_by_sensor(ids_list, train_x, pipeline):
         train_flat = train_flat[index]
         train_x_flat = train_flat[:, 3:]
         train_y_flat = train_flat[:, 0].ravel()
-        estimators[i], train_losses[i], test_losses[i] = timeseries_cv(
-            pipeline,
-            train_x_flat, train_y_flat, with_previous_timesteps=False)
-        #print(np.mean(train_losses), np.mean(test_losses))
 
-    return estimators, train_losses, test_losses
+        if for_model_selection:
+            train_x_flat = train_x_flat[::10]
+            train_y_flat = train_y_flat[::10]
+
+        if not with_alphas:
+            estimators[i], train_losses[i], test_losses[i] = timeseries_cv(
+                pipeline,
+                train_x_flat, train_y_flat, with_previous_timesteps=False)
+            #print(np.mean(train_losses), np.mean(test_losses))
+        else:
+            estimators[i], train_losses[i], test_losses[i], alphas[i] = timeseries_cv(
+                pipeline,
+                train_x_flat, train_y_flat, with_previous_timesteps=False, with_alpha=with_alphas)
+    if not with_alphas:
+        return estimators, train_losses, test_losses
+    else:
+        return estimators, train_losses, test_losses, alphas
