@@ -178,7 +178,7 @@ season_transformer = dict(
 )
 
 # Boolean columns
-all_bool_columns = ["bank_holiday", "working_day", "school_holiday"]
+all_bool_columns = ["bank_holiday", "working_day", "school_holiday", "state_of_alarm"]
 # bool_categories = [[False, True]] * len(bool_columns)
 
 # Temporal columns: month, day, hour, minute
@@ -366,6 +366,7 @@ def get_column_names(meteo_dict, temporal_dict, interactions, target):
 # bank_holiday: passthrough, drop
 # working_day: passthrough, drop
 # school_holiday: passthrough, drop
+# state of alarm: passthrough, drop
 # year: passthrough, drop, one_hot
 # season: one_hot, ordinal, drop
 # month: passthrough, one_hot, fourier, spline, drop

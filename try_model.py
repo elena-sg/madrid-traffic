@@ -18,7 +18,7 @@ from graph_traffic.dataloading import METR_LAGraphDataset, METR_LATrainDataset,\
     PEMS_BAYValidDataset, PEMS_BAYTestDataset, MadridGraphDataset, \
     MadridTrainDataset, MadridTestDataset, MadridValidDataset
 from graph_traffic.utils import NormalizationLayer, masked_mae_loss
-from graph_traffic.train import predict
+from graph_traffic.train_gnn import predict
 
 batch_cnt = [0]
 

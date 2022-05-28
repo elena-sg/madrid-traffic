@@ -2,7 +2,7 @@ from graph_traffic.dataloading import graph_dataset, npzDataset
 from graph_traffic.dcrnn import DiffConv
 from graph_traffic.config import project_path
 from graph_traffic.model import GraphRNN
-from graph_traffic.train import train, eval
+from graph_traffic.train_gnn import train, eval
 from graph_traffic.utils import NormalizationLayer, masked_mae_loss
 
 

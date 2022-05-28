@@ -36,9 +36,9 @@ def timeseries_cv(estimator, x, y, with_previous_timesteps=True, with_alpha=Fals
         estimators.append(estimator)
         train_pred = estimator.predict(x_train)
         if with_previous_timesteps:
-            loss = mean_absolute_error(train_pred, y_train[..., [0]]), mean_squared_error(train_pred, y_train[..., [0]])
+            loss = mean_absolute_error(train_pred.ravel(), y_train[..., [0]].ravel()), mean_squared_error(train_pred.ravel(), y_train[..., [0]].ravel())
         else:
-            loss = mean_absolute_error(train_pred, y_train), mean_squared_error(train_pred, y_train)
+            loss = mean_absolute_error(train_pred.ravel(), y_train.ravel()), mean_squared_error(train_pred.ravel(), y_train.ravel())
         train_losses.append(loss)
 
         # if predict is not None:
@@ -48,9 +48,9 @@ def timeseries_cv(estimator, x, y, with_previous_timesteps=True, with_alpha=Fals
 
         test_pred = estimator.predict(x_test)
         if with_previous_timesteps:
-            loss = mean_absolute_error(test_pred, y_test[..., [0]]), mean_squared_error(test_pred, y_test[..., [0]])
+            loss = mean_absolute_error(test_pred.ravel(), y_test[..., [0]].ravel()), mean_squared_error(test_pred.ravel(), y_test[..., [0]].ravel())
         else:
-            loss = mean_absolute_error(test_pred, y_test), mean_squared_error(test_pred, y_test)
+            loss = mean_absolute_error(test_pred.ravel(), y_test.ravel()), mean_squared_error(test_pred.ravel(), y_test.ravel())
         test_losses.append(loss)
         if with_alpha:
             alphas.append(estimator[-1].alpha_)
@@ -183,3 +183,28 @@ def train_estimators_by_sensor(ids_list, train_x, pipeline, with_alphas=False, f
         return estimators, train_losses, test_losses
     else:
         return estimators, train_losses, test_losses, alphas
+
+
+def mean_loss(l):
+    mae = [x[0] for x in l]
+    mse = [x[1] for x in l]
+    return sum(mae)/len(mae), sum(mse)/len(mse)
+
+
+def std_loss(l):
+    mae_std = np.std([x[0] for x in l])
+    mse_std = np.std([x[1] for x in l])
+    return mae_std, mse_std
+
+
+def print_losses(train_losses, test_losses):
+    mae_train, mse_train = mean_loss(train_losses)
+    mae_std_train, mse_std_train = std_loss(train_losses)
+
+    mae_test, mse_test = mean_loss(test_losses)
+    mae_std_test, mse_std_test = std_loss(test_losses)
+
+    print(f"Train MAE: {mae_train:.2f}, std: {mae_std_train:.2f}")
+    print(f"Train MSE: {mse_train:.2f}, std: {mse_std_train:.2f}")
+    print(f"Test MAE: {mae_test:.2f}, std: {mae_std_test:.2f}")
+    print(f"Test MSE: {mse_test:.2f}, std: {mse_std_test:.2f}")

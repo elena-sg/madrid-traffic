@@ -71,6 +71,7 @@ def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[
     df["week"] = df.date.dt.isocalendar().week
     df["day_of_month"] = df.date.dt.day
     df["day_type"] = day_type(df.date)
+    df["state_of_alarm"] = (df.date >= "2020-03-14") & (df.date <= "2020-06-21")
     df["weekday"] = df.date.dt.weekday
     df["bank_holiday"] = df.date.dt.date.isin(bank_holidays)
     df["working_day"] = (df.date.dt.weekday <= 4) & (~df.bank_holiday)

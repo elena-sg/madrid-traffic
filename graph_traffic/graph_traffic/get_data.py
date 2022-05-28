@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import json
 from math import exp
@@ -173,6 +174,7 @@ def get_data(data_dict, meteo_dict, temporal_dict):
 
     data_size = arrx.shape[0]
 
+    os.mkdir(f"{data_path}/05-graph-data/{dataset_name}-dataset")
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_dataset.npz", x=arrx, y=arry)
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_train.npz",
              x=arrx[:int(0.8 * data_size)], y=arry[:int(0.8 * data_size)])
@@ -195,6 +197,6 @@ def plot_graph(graph, ids_list, save_dir=None):
     nx_G = graph.to_networkx()
     # Kamada-Kawaii layout usually looks pretty for arbitrary graphs
     pos = nx.kamada_kawai_layout(nx_G)
-    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 30, node_size=1500)
+    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 20, node_size=1500)
     if save_dir is not None:
         plt.savefig(f"{save_dir}/graph.svg")
