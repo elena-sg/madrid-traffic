@@ -88,8 +88,8 @@ class DaytimeRegressor(BaseEstimator):
         self.by_working_day = by_working_day
 
     def fit(self, X, y):
-        new_x = np.concatenate([y[..., [0]], X[..., 1:]], axis=3)
-        x_train_by_sensor = new_x.reshape(3, -1, 2+1*self.by_working_day)
+        new_x = np.concatenate([y[:, :, :, [0]], X[:, :, :, 1:]], axis=3)
+        x_train_by_sensor = new_x.reshape(X.shape[2], -1, 2+1*self.by_working_day)
         if not self.by_working_day:
             df = pd.DataFrame([], index=np.linspace(0, 23.75, 24 * 4), columns=range(X.shape[2]))
             for sensor in range(X.shape[2]):

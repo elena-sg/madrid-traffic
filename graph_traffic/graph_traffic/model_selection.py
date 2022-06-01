@@ -1,7 +1,14 @@
+import os
+import pickle
+from random import choices
+
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from sklearn.model_selection import TimeSeriesSplit
+
+from graph_traffic.config import project_path, data_path
 from graph_traffic.get_data import ubs_index
 import matplotlib as mpl
 
@@ -97,7 +104,7 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len, name_sa
 
             if i == 0:
                 #ax[sensor][i].set_ylabel(f"Cars/hour, sensor {labels_dict[sensor]}")
-                ax[sensor][i].set_ylabel("Cars/hour")
+                ax[sensor][i].set_ylabel("% of time is busy")
             if sensor == len(ids_list) - 1:
                 ax[sensor][i].set_xticks(timestamps, [f"{t % 24:.0f}" for t in timestamps])
                 #ax[sensor][i].set_xlabel(f"Sample number {i}, hour")
@@ -111,7 +118,7 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len, name_sa
     plt.show()
 
 
-def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, seq_len, features_from_index=3):
+def plot_predictions_from_features(estimators, x, y, random_samples, ids_list, seq_len, features_from_index=1):
     _, ubs_dict = ubs_index(ids_list)
     fig, ax = plt.subplots(len(ids_list), len(random_samples), figsize=(25, len(ids_list)*2), sharex="col",
                            sharey="row")
@@ -163,7 +170,7 @@ def train_estimators_by_sensor(ids_list, train_x, pipeline, with_alphas=False, f
         _, index = np.unique(train_flat, axis=0, return_index=True)
         index = np.sort(index)
         train_flat = train_flat[index]
-        train_x_flat = train_flat[:, 3:]
+        train_x_flat = train_flat[:, 1:]
         train_y_flat = train_flat[:, 0].ravel()
 
         if for_model_selection:
@@ -208,3 +215,28 @@ def print_losses(train_losses, test_losses):
     print(f"Train MSE: {mse_train:.2f}, std: {mse_std_train:.2f}")
     print(f"Test MAE: {mae_test:.2f}, std: {mae_std_test:.2f}")
     print(f"Test MSE: {mse_test:.2f}, std: {mse_std_test:.2f}")
+
+
+def get_node_ids(longitud_lims=(-3.751606718841786, -3.712921076766364), latitud_lims=(40.370171412126666, 40.39161422772982)):
+    with open(os.path.join(project_path, "figures/explorative/ocupacion_data_sizes.pkl"), "rb") as f:
+        data_sizes = pickle.load(f)
+    biggest_files = sorted([(i, size) for (i, size) in data_sizes.items()], key=lambda x: x[1], reverse=True)
+    ids = [x[0] for x in biggest_files if x[1] >= 80000]
+    ubs = pd.read_csv(data_path + "/01-raw/traffic/ubs.csv")
+    ids_to_use = ubs.loc[(ubs.id.isin(ids)) &
+                         (ubs.longitud.between(*longitud_lims)) &
+                         (ubs.latitud.between(*latitud_lims))].id.values
+    ids_to_use = sorted(ids_to_use, key=lambda x: data_sizes[x], reverse=True)
+    return ids_to_use
+
+def get_random_sample(test_dates, seq_len, k):
+    random_samples = []
+    for i in range(k):
+        sample = choices(range(test_dates.shape[0]), k=1)[0]
+        timestamps = np.copy(test_dates[sample:sample + seq_len])
+        while (pd.Series(timestamps).diff().isin([0.25, -23.75])).sum() != seq_len - 1:
+            sample = choices(range(test_dates.shape[0]), k=1)[0]
+            timestamps = np.copy(test_dates[sample:sample + seq_len])
+        random_samples.append(sample)
+
+    return random_samples

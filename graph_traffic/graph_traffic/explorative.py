@@ -24,7 +24,19 @@ sup_title = dict(
     vmed="Velocidad media"
 )
 
+sup_title_meteo = dict(
+    velocidad_viento="Velocidad del viento",
+    dir_viento="Dirección del viento",
+    temperatura="Temperatura",
+    humedad_relativa="Humedad relativa",
+    presion_barometrica="Presión barómetrica",
+    radiacion_solar="Radiación solar",
+    precipitacion="Precipitación"
+)
+
 targets = ["intensidad", "ocupacion", "vmed"]
+mmagns = ["velocidad_viento", "dir_viento", "temperatura", "humedad_relativa", "presion_barometrica",
+          "radiacion_solar", "precipitacion"]
 
 
 def plot_date_hist(df, ax):
@@ -66,15 +78,11 @@ def describe_magnitude(subfig, id, target):
 
 def describe_all_magnitudes(id):
     fig = plt.figure(figsize=(15, len(targets)*2))
-    fig.suptitle('Figure title')
-
     # create 3x1 subfigs
     subfigs = fig.subfigures(nrows=len(targets), ncols=1)
     for i, target in enumerate(targets):
         subfigs[i] = describe_magnitude(subfigs[i], id, target)
-
     fig.tight_layout()
-
     plt.savefig(f"{figures_path_expl}/magnitudes.png")
     plt.show()
 
@@ -103,3 +111,53 @@ def get_plot_n_observations():
     plt.savefig(f"{figures_path_expl}/n_observations.png")
     plt.show()
     return ids_no_data
+
+
+def get_plot_n_observations_meteo():
+    files_path = data_path + "/03-by-location/meteo"
+    dates = dict.fromkeys(mmagns, pd.Series([]))
+    ids_no_data = dict.fromkeys(mmagns, [])
+    files = os.listdir(files_path)
+    n_files = len(files)
+    fig, ax = plt.subplots(len(mmagns), 1, figsize=(15, len(mmagns)*3))
+    for i, file in enumerate(files):
+        print(f"{i}/{n_files}", end="\r")
+        df = pd.read_csv(files_path+"/"+file, parse_dates=["fecha"])
+        for magn in mmagns:
+            dates[magn] = pd.concat([dates[magn], df[["fecha", magn]].dropna().fecha], ignore_index=True)
+    for i, magn in enumerate(mmagns):
+        ax[i].hist(dates[magn], bins=52*3)
+        ax[i].set_title(sup_title_meteo[magn])
+        ax[i].xaxis.set_major_locator(YearLocator())
+    fig.tight_layout()
+    plt.savefig(f"{figures_path_expl}/n_observations_meteo.png")
+    plt.show()
+    return ids_no_data
+
+
+def get_rel(feature1, feature2, alpha=0.01):
+    files_path = data_path + "/03-by-location/traffic"
+    list1 = []
+    list2 = []
+    files = os.listdir(files_path)
+    n_files = len(files)
+
+    for i, file in enumerate(files):
+        print(f"{i}/{n_files}", end="\r")
+        df = pd.read_csv(files_path + "/" + file, usecols=[feature1, feature2]).dropna()
+        df = df[(df[feature1] != 0) & (df[feature2] != 0)]
+        if not df.empty:
+            list1 += df[feature1].tolist()
+            list2 += df[feature2].tolist()
+
+    # fig, ax = plt.subplots()
+    # ax.scatter(list1, list2, alpha=alpha)
+    # ax.set_title(f"Relación entre {sup_title[feature1]} and {sup_title[feature2]}")
+    # ax.set_xlabel(f"{sup_title[feature1]}: {titles[feature1]}")
+    # ax.set_ylabel(f"{sup_title[feature2]}: {titles[feature2]}")
+    # fig.tight_layout()
+    # plt.savefig(f"{figures_path_expl}/rel_{feature1}_{feature2}.png")
+    # plt.savefig(f"{figures_path_expl}/rel_{feature1}_{feature2}.svg")
+    # plt.show()
+
+    return list1, list2

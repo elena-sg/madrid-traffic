@@ -11,7 +11,7 @@ from graph_traffic.dcrnn import DiffConv
 from graph_traffic.get_data import get_data, plot_graph
 from graph_traffic.model import GraphRNN
 from graph_traffic.utils import get_learning_rate, NormalizationLayer, masked_mae_loss
-from graph_traffic.config import project_path
+from graph_traffic.config import project_path, data_path
 from datetime import datetime
 import pickle
 import os
@@ -61,34 +61,41 @@ def predict(x, y, batch_size, graph, model, device, normalizer):
 
 
 def train(model, graph, dataloader, optimizer, scheduler, normalizer, loss_fn, device, batch_size, max_grad_norm, minimum_lr):
-    total_loss = []
+    mae_loss = []
+    mse_loss = []
     graph = graph.to(device)
     model.train()
     for i, (x, y) in enumerate(dataloader):
         optimizer.zero_grad()
         y, y_pred = predict(x, y, batch_size, graph, model, device, normalizer)
-        loss = loss_fn(y_pred, y)
-        loss.backward()
+        mae = torch.nn.L1Loss()(y_pred, y)
+        mse = torch.nn.MSELoss()(y_pred, y)
+        mae.backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
         if get_learning_rate(optimizer) > minimum_lr:
             scheduler.step()
-        total_loss.append(float(loss))
+        mae_loss.append(float(mae))
+        mse_loss.append(float(mse))
         batch_cnt[0] += 1
         print("Batch: ", i, end="\r")
-    return np.mean(total_loss)
+    return np.mean(mae_loss), np.mean(mse_loss)
 
 
 def eval(model, graph, dataloader, normalizer, loss_fn, device, batch_size):
-    total_loss = []
+    mae_loss = []
+    mse_loss = []
     graph = graph.to(device)
     model.eval()
     batch_size = batch_size
     for i, (x, y) in enumerate(dataloader):
         y, y_pred = predict(x, y, batch_size, graph, model, device, normalizer)
-        loss = loss_fn(y_pred, y)
-        total_loss.append(float(loss))
-    return np.mean(total_loss)
+        mae = torch.nn.L1Loss()(y_pred, y)
+        mse = torch.nn.MSELoss()(y_pred, y)
+        #loss = loss_fn(y_pred, y)
+        mae_loss.append(float(mae))
+        mse_loss.append(float(mse))
+    return np.mean(mae_loss), np.mean(mse_loss)
 
 
 def get_data_loaders(dataset_name, n_points, batch_size, num_workers):
@@ -161,7 +168,7 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
     if model == "dcrnn":
         batch_g = dgl.batch([g] * batch_size).to(device)
         out_gs, in_gs = DiffConv.attach_graph(batch_g, diffsteps)
-        net = partial(DiffConv, k=diffsteps, in_graph_list=in_gs, out_graph_list=out_gs)
+        net = partial(DiffConv, k=diffsteps, in_graph_list=in_gs, out_graph_list=out_gs, dir=args["dir"])
     elif model == 'gaan':
         print("not available")
 
@@ -177,36 +184,104 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
 
     loss_fn = masked_mae_loss
 
-    train_losses = []
-    test_losses = []
+
+    train_maes = []
+    train_mses = []
+    test_maes = []
+    test_mses = []
     for e in range(epochs):
         train(dcrnn, g, train_loader, optimizer, scheduler, normalizer, loss_fn, device, batch_size, max_grad_norm,
               minimum_lr)
-        train_loss = eval(dcrnn, g, train_loader, normalizer, loss_fn, device, batch_size)
-        test_loss = eval(dcrnn, g, test_loader, normalizer, loss_fn, device, batch_size)
-        print(f"Epoch: {e} Train Loss: {train_loss} Test Loss: {test_loss}")
+        train_mae, train_mse = eval(dcrnn, g, train_loader, normalizer, loss_fn, device, batch_size)
+        test_mae, test_mse = eval(dcrnn, g, test_loader, normalizer, loss_fn, device, batch_size)
+        print(f"Epoch: {e} Train MAE: {train_mae} Train MSE: {train_mse} Test MAE: {test_mae} Test MSE: {test_mse}")
 
-        train_losses.append(train_loss)
-        test_losses.append(test_loss)
+        train_maes.append(train_mae)
+        train_mses.append(train_mse)
+        test_maes.append(test_mae)
+        test_mses.append(test_mse)
 
         fig, ax = plt.subplots(figsize=(14, 4))
-        ax.plot(train_losses, label="train")
-        ax.plot(test_losses, label="test")
+        ax.plot(train_maes, label="train")
+        ax.plot(test_maes, label="test")
         plt.legend()
-        plt.savefig(f"{training_folder}/learning_curve.svg")
+        plt.savefig(f"{training_folder}/learning_curve_mae.svg")
         plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(14, 4))
+        ax.plot(train_mses, label="train")
+        ax.plot(test_mses, label="test")
+        plt.legend()
+        plt.savefig(f"{training_folder}/learning_curve_mse.svg")
+        plt.close(fig)
+
+        torch.save(dcrnn.state_dict(), f"{training_folder}/model.pt")
 
     print("Training finished")
 
     os.mkdir(f"{training_folder}/losses")
     with open(f"{training_folder}/losses/train.pkl", "wb") as f:
-        pickle.dump(train_losses, f)
+        pickle.dump(train_maes, f)
     with open(f"{training_folder}/losses/test.pkl", "wb") as f:
-        pickle.dump(test_losses, f)
+        pickle.dump(test_mses, f)
 
-    torch.save(dcrnn.state_dict(), f"{training_folder}/model.pt")
+
 
 
 def test_model(name):
-    _, _, _, train_loader, test_loader = get_data_loaders(name, None, 64, 0)
+
     training_folder = f"{project_path}/training_history/{name}"
+    with open(training_folder + "/data_dict.pkl", "rb") as f:
+        data_dict = pickle.load(f)
+    with open(training_folder + "/learning_args.pkl", "rb") as f:
+        args = pickle.load(f)
+    with open(f"{training_folder}/temporal_dict.pkl", "rb") as f:
+        temporal_dict = pickle.load(f)
+    with open(f"{training_folder}/meteo_dict.pkl", "rb") as f:
+        meteo_dict = pickle.load(f)
+
+    data_dict["dataset_name"] = name
+    if "dir" not in args.keys():
+        args["dir"] = "both"
+
+    print("data dict:", data_dict)
+    print("learning args:", args)
+    print("temporal dict:", temporal_dict)
+    print("meteo dict:", meteo_dict)
+
+    #if not os.path.exists(f"{data_path}/05-graph-data/{name}-dataset"):
+    #    get_data(data_dict, meteo_dict, temporal_dict)
+    g, train_data, _, train_loader, test_loader = get_data_loaders(name, None, 64, 0)
+
+    batch_g = dgl.batch([g] * args["batch_size"]).to(torch.device('cpu'))
+    out_gs, in_gs = DiffConv.attach_graph(batch_g, args["diffsteps"])
+    net = partial(DiffConv, k=args["diffsteps"], in_graph_list=in_gs, out_graph_list=out_gs, dir=args["dir"])
+
+    dcrnn = GraphRNN(in_feats=train_data.x.shape[-1],
+                     out_feats=args["out_feats"],
+                     seq_len=train_data.x.shape[1],
+                     num_layers=args["num_layers"],
+                     net=net,
+                     decay_steps=args["decay_steps"]).to(torch.device('cpu'))
+
+    dcrnn.load_state_dict(torch.load(f"{training_folder}/model.pt"))
+    for i, (x, y) in enumerate(test_loader):
+        # x, y, x_norm, y_norm, batch_graph = prepare_data(g.to(device), x, y, normalizer, args.batch_size, device)
+        # y_pred = predict(dcrnn, batch_graph, x_norm, y_norm, normalizer, device, i)
+        dcrnn.eval()
+        y, y_pred = predict(x, y, args["batch_size"], g.to(torch.device('cpu')), dcrnn, torch.device('cpu'),
+                            NormalizationLayer(train_data.min, train_data.max))
+        break
+
+    for i in range(10):
+        fig, ax = plt.subplots()
+        # ax.set_title(f"de {(y[:, i, 1]*24).min().numpy()} a  {(y[:, i, 1]*24).max().numpy()}, sensor{i%5+1}")
+        ax.plot(y[:, i, 0].detach().numpy(), label="real")
+        ax.plot(y_pred[:, i, 0].detach().numpy(), label="pred")
+        plt.legend()
+
+    fig, ax = plt.subplots()
+    ax.scatter(y.detach().numpy().ravel(), y_pred.detach().numpy().ravel())
+    #ax.set_xlim(xmin=0, xmax=10)
+    #ax.set_ylim(xmin=0, xmax=10)
+    plt.show()

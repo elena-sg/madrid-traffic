@@ -26,7 +26,6 @@ class MadridTrafficDataset(DGLDataset):
         super().__init__(name='madrid_traffic')
 
 
-
     def process(self):
         self.graph = dgl.graph((self.edges_src, self.edges_dst), num_nodes=self.n_nodes)
         #self.graph.ndata['feat'] = node_features
@@ -97,7 +96,7 @@ def get_graph(ubs, ubs_dict):
 
     weights = distances.applymap(get_weight).fillna(0).round(4)
 
-    weights_lim = weights[weights > 0.01].stack()
+    weights_lim = weights[weights > 0.1].stack()
     nodes_src, nodes_target = zip(*weights_lim.index)
     nodes_src = np.array(nodes_src)
     nodes_target = np.array(nodes_target)
@@ -174,7 +173,8 @@ def get_data(data_dict, meteo_dict, temporal_dict):
 
     data_size = arrx.shape[0]
 
-    os.mkdir(f"{data_path}/05-graph-data/{dataset_name}-dataset")
+    if not os.path.exists(f"{data_path}/05-graph-data/{dataset_name}-dataset"):
+        os.mkdir(f"{data_path}/05-graph-data/{dataset_name}-dataset")
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_dataset.npz", x=arrx, y=arry)
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_train.npz",
              x=arrx[:int(0.8 * data_size)], y=arry[:int(0.8 * data_size)])
@@ -196,7 +196,7 @@ def plot_graph(graph, ids_list, save_dir=None):
     labels_dict = {v: k for (k, v) in ubs_dict.items()}
     nx_G = graph.to_networkx()
     # Kamada-Kawaii layout usually looks pretty for arbitrary graphs
-    pos = nx.kamada_kawai_layout(nx_G)
-    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 20, node_size=1500)
+    pos = nx.spring_layout(nx_G)
+    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 10, node_size=1500)
     if save_dir is not None:
         plt.savefig(f"{save_dir}/graph.svg")

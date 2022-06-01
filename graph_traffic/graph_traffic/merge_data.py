@@ -17,7 +17,9 @@ mapping = pd.read_csv(os.path.join(data_path, '03-by-location', 'id_mapping.csv'
 
 
 def merge_data(id_t, from_date=None, to_date=None, target="intensidad", mmagns=[], seq_len=1):
-    ids_m = mapping[mapping.id_t == id_t].iloc[0][[f'id_{magn}' for magn in mmagns]].astype(int)
+    #ids_m = mapping[mapping.id_t == id_t].iloc[0][[f'id_{magn}' for magn in mmagns]].astype(int)
+    ids_dict = {f"id_{magn}": 56 if magn!="radiacion_solar" else 103 for magn in mmagns}
+    ids_m = pd.Series(ids_dict, dtype="int64")
     if from_date is None:
         from_date = "2019-01-01"
     if to_date is None:

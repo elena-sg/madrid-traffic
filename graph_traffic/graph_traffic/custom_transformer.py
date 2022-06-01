@@ -178,7 +178,7 @@ season_transformer = dict(
 )
 
 # Boolean columns
-all_bool_columns = ["bank_holiday", "working_day", "school_holiday", "state_of_alarm"]
+all_bool_columns = ["working_day", "bank_holiday", "school_holiday", "state_of_alarm"]
 # bool_categories = [[False, True]] * len(bool_columns)
 
 # Temporal columns: month, day, hour, minute
@@ -344,8 +344,8 @@ def get_interactions_columns(interactions, hour_approach):
 
 def get_column_names(meteo_dict, temporal_dict, interactions, target):
     if interactions == "kernel":
-        return [target, "hour", "working_day"] + [f"c{i + 1}" for i in range(300)]
-    column_names = [target, "hour", "working_day"]
+        return [target] + [f"c{i + 1}" for i in range(300)]
+    column_names = [target]
     column_names += get_temp_column_names("hour", temporal_dict["hour"])
     column_names += [c for c in all_bool_columns if temporal_dict[c] == "passthrough"]
     column_names += get_temp_column_names("year", temporal_dict["year"])
@@ -388,8 +388,8 @@ def preprocessing_transformer(meteo_dict, temporal_dict, interactions, target):
     transformers = [("target", "passthrough", [target])]
     n_columns_before_interactions = len(get_column_names(meteo_dict, temporal_dict, "drop", target))
     transformers += [
-        ("hour", "passthrough", ["hour"]),
-        ("workingday", OrdinalEncoder(categories=[[False, True]]), ["working_day"]),
+        #("hour", "passthrough", ["hour"]),
+        #("workingday", OrdinalEncoder(categories=[[False, True]]), ["working_day"]),
         ("hour_transformed", hour_transformer(temporal_dict["hour"]), ["hour"]),
         ("bool", OrdinalEncoder(categories=[[False, True]] * len(bool_columns)), bool_columns),
         ("year", temp_categorical("year", temporal_dict["year"]), ["year"]),
