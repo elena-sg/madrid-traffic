@@ -226,10 +226,7 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
         pickle.dump(test_mses, f)
 
 
-
-
 def test_model(name):
-
     training_folder = f"{project_path}/training_history/{name}"
     with open(training_folder + "/data_dict.pkl", "rb") as f:
         data_dict = pickle.load(f)
@@ -285,3 +282,4 @@ def test_model(name):
     #ax.set_xlim(xmin=0, xmax=10)
     #ax.set_ylim(xmin=0, xmax=10)
     plt.show()
+    return dcrnn

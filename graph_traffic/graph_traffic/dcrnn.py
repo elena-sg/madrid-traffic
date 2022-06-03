@@ -25,7 +25,7 @@ class DiffConv(nn.Module):
         From paper default both direction
     '''
 
-    def __init__(self, in_feats, out_feats, k, in_graph_list, out_graph_list, dir='out'):
+    def __init__(self, in_feats, out_feats, k, in_graph_list, out_graph_list, dir='both'):
         super(DiffConv, self).__init__()
         self.in_feats = in_feats
         self.out_feats = out_feats

@@ -60,35 +60,34 @@ def ubs_index(ids_list):
     return ubs, ubs_dict
 
 
-def get_graph(ubs, ubs_dict):
-    distances = pd.DataFrame(index=ubs.index.rename("origin"), columns=ubs.index.rename("target"))
-    for origin in ubs.index.values:
-        olong = ubs.loc[origin, "longitud"]
-        olat = ubs.loc[origin, "latitud"]
+def get_graph(ubs, ubs_dict, weight_threshold=0.1):
+    precomputed_distances = pd.read_csv(data_path + "/05-graph-data/precomputed_distances.csv", sep=";", index_col=0)
+    precomputed_distances.index = precomputed_distances.index.astype(str)
+    distances = pd.DataFrame(index=ubs.index.astype(str).rename("origin"),
+                             columns=ubs.index.astype(str).rename("target"))
+    for origin in ubs.index.astype(str).values:
+        olong = ubs.loc[int(origin), "longitud"]
+        olat = ubs.loc[int(origin), "latitud"]
         d = []
-        for target in ubs.index.values:
+        for target in ubs.index.astype(str).values:
             if origin == target:
                 continue
-            tlong = ubs.loc[target, "longitud"]
-            tlat = ubs.loc[target, "latitud"]
-            request_path = f"http://router.project-osrm.org/route/v1/car/{olong},{olat};{tlong},{tlat}?overview=false"
-            r = requests.get(request_path)  # then you load the response using the json libray
-            # by default you get only one alternative so you access 0-th element of the `routes`
-            routes = json.loads(r.content)
-            route_1 = routes.get("routes")[0]
-            distances.loc[origin, target] = route_1["duration"]
+            if (origin in precomputed_distances.index.values) and\
+                    (target in precomputed_distances.columns) and\
+                    (not np.isnan(precomputed_distances.loc[origin, target])):
+                distances.loc[origin, target] = precomputed_distances.loc[origin, target]
+            else:
+                tlong = ubs.loc[int(target), "longitud"]
+                tlat = ubs.loc[int(target), "latitud"]
+                request_path = f"http://router.project-osrm.org/route/v1/car/{olong},{olat};{tlong},{tlat}?overview=false"
+                r = requests.get(request_path)  # then you load the response using the json libray
+                # by default you get only one alternative so you access 0-th element of the `routes`
+                routes = json.loads(r.content)
+                route_1 = routes.get("routes")[0]
+                distances.loc[origin, target] = route_1["duration"]
+                precomputed_distances.loc[origin, str(target)] = route_1["duration"]
+    precomputed_distances.to_csv(data_path + "/05-graph-data/precomputed_distances.csv", sep=";")
     distances = distances.astype(float)
-
-    # manual manipulation of distances
-    if 3978 in distances.index.values:
-        if 3973 in distances.index.values:
-            distances.loc[3978, 3973] = 60
-            distances.loc[3973, 3978] = 90
-        if 3976 in distances.index.values:
-            distances.loc[3976, 3978] = 150
-        if 3977 in distances.index.values:
-            distances.loc[3977, 3978] = 60
-
     std = np.nanstd(distances.to_numpy().ravel())
 
     def get_weight(distance):
@@ -96,13 +95,13 @@ def get_graph(ubs, ubs_dict):
 
     weights = distances.applymap(get_weight).fillna(0).round(4)
 
-    weights_lim = weights[weights > 0.1].stack()
+    weights_lim = weights[weights > weight_threshold].stack()
     nodes_src, nodes_target = zip(*weights_lim.index)
     nodes_src = np.array(nodes_src)
     nodes_target = np.array(nodes_target)
 
-    nodes_src_graph = np.array([ubs_dict[x] for x in nodes_src])
-    nodes_target_graph = np.array([ubs_dict[x] for x in nodes_target])
+    nodes_src_graph = np.array([ubs_dict[int(x)] for x in nodes_src])
+    nodes_target_graph = np.array([ubs_dict[int(x)] for x in nodes_target])
 
     graph_dataset = MadridTrafficDataset(ubs.shape[0], nodes_src_graph, nodes_target_graph, weights_lim)
 
@@ -186,7 +185,9 @@ def get_data(data_dict, meteo_dict, temporal_dict):
     if not with_graph:
         return arrx, arry
     else:
-        graph = get_graph(ubs, ubs_dict)[0]
+        if "graph_weight_threshold" not in data_dict.keys():
+            data_dict["graph_weight_threshold"] = 0.1
+        graph = get_graph(ubs, ubs_dict, weight_threshold=data_dict["graph_weight_threshold"])[0]
         dgl.save_graphs(f"{data_path}/05-graph-data/{dataset_name}-dataset/graph.bin", [graph])
         return arrx, arry, graph
 
