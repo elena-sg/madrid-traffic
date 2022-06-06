@@ -108,18 +108,7 @@ def get_graph(ubs, ubs_dict, weight_threshold=0.1):
     return graph_dataset
 
 
-# def get_data(ids_list, seq_len, rain, wind, temperature, humidity, pressure, radiation, season, month, day_of_month,
-#              hour, interactions, with_graph, from_date, to_date, dataset_name, target):
-def get_data(data_dict, meteo_dict, temporal_dict):
-    ids_list = data_dict["ids_list"]
-    from_date = data_dict["from_date"]
-    to_date = data_dict["to_date"]
-    target = data_dict["target"]
-    seq_len = data_dict["seq_len"]
-    dataset_name = data_dict["dataset_name"]
-    with_graph = data_dict["with_graph"]
-    ubs, ubs_dict = ubs_index(ids_list)
-
+def get_mmagns(meteo_dict):
     mmagns = []
     if meteo_dict["rain"] != "drop":
         mmagns.append("precipitacion")
@@ -133,6 +122,22 @@ def get_data(data_dict, meteo_dict, temporal_dict):
         mmagns.append("presion_barometrica")
     if meteo_dict["radiation"] != "drop":
         mmagns.append("radiacion_solar")
+    return mmagns
+
+
+# def get_data(ids_list, seq_len, rain, wind, temperature, humidity, pressure, radiation, season, month, day_of_month,
+#              hour, interactions, with_graph, from_date, to_date, dataset_name, target):
+def get_data(data_dict, meteo_dict, temporal_dict, train_until=None):
+    ids_list = data_dict["ids_list"]
+    from_date = data_dict["from_date"]
+    to_date = data_dict["to_date"]
+    target = data_dict["target"]
+    seq_len = data_dict["seq_len"]
+    dataset_name = data_dict["dataset_name"]
+    with_graph = data_dict["with_graph"]
+    ubs, ubs_dict = ubs_index(ids_list)
+
+    mmagns = get_mmagns(meteo_dict)
 
     dates = pd.date_range(from_date, to_date, freq="15min")
     dfs_dict = {}
@@ -171,16 +176,22 @@ def get_data(data_dict, meteo_dict, temporal_dict):
     #arrx = arrx[:-seq_len]
 
     data_size = arrx.shape[0]
+    if train_until is None:
+        train_data_size = int(0.8 * data_size)
+    else:
+        dates_train = (dates.to_series().reset_index(drop=True) <= train_until)
+        train_index = np.intersect1d(dates_train[dates_train].index.values, right_time_gaps)
+        train_data_size = len(train_index)
 
     if not os.path.exists(f"{data_path}/05-graph-data/{dataset_name}-dataset"):
         os.mkdir(f"{data_path}/05-graph-data/{dataset_name}-dataset")
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_dataset.npz", x=arrx, y=arry)
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_train.npz",
-             x=arrx[:int(0.8 * data_size)], y=arry[:int(0.8 * data_size)])
+             x=arrx[:train_data_size], y=arry[:train_data_size])
     # np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_valid.npz",
     #          x=arrx[int(0.6 * data_size):int(0.8 * data_size)], y=arry[int(0.6 * data_size):int(0.8 * data_size)])
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_test.npz",
-             x=arrx[int(0.8 * data_size):], y=arry[int(0.8 * data_size):])
+             x=arrx[train_data_size:], y=arry[train_data_size:])
 
     if not with_graph:
         return arrx, arry
@@ -192,12 +203,15 @@ def get_data(data_dict, meteo_dict, temporal_dict):
         return arrx, arry, graph
 
 
-def plot_graph(graph, ids_list, save_dir=None):
+def plot_graph(graph, ids_list, save_dir=None, graph_name="graph", layout=nx.spring_layout):
     _, ubs_dict = ubs_index(ids_list)
     labels_dict = {v: k for (k, v) in ubs_dict.items()}
     nx_G = graph.to_networkx()
     # Kamada-Kawaii layout usually looks pretty for arbitrary graphs
-    pos = nx.spring_layout(nx_G)
-    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=graph.edata["weight"].numpy() * 10, node_size=1500)
+    pos = layout(nx_G)
+    widths = 5.8 * graph.edata["weight"].numpy() - 2.8
+    nx.draw(nx_G, pos, with_labels=True, labels=labels_dict, width=widths, node_size=1500)
     if save_dir is not None:
-        plt.savefig(f"{save_dir}/graph.svg")
+        plt.savefig(f"{save_dir}/{graph_name}.svg")
+        plt.savefig(f"{save_dir}/{graph_name}.png")
+        plt.clf()

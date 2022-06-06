@@ -217,7 +217,7 @@ def print_losses(train_losses, test_losses):
     print(f"Test MSE: {mse_test:.2f}, std: {mse_std_test:.2f}")
 
 
-def get_node_ids(longitud_lims=(-3.751606718841786, -3.712921076766364), latitud_lims=(40.370171412126666, 40.39161422772982)):
+def get_node_ids(longitud_lims=(-3.7443, -3.7308), latitud_lims=(40.3830, 40.3904)):
     with open(os.path.join(project_path, "figures/explorative/ocupacion_data_sizes.pkl"), "rb") as f:
         data_sizes = pickle.load(f)
     biggest_files = sorted([(i, size) for (i, size) in data_sizes.items()], key=lambda x: x[1], reverse=True)
@@ -228,6 +228,7 @@ def get_node_ids(longitud_lims=(-3.751606718841786, -3.712921076766364), latitud
                          (ubs.latitud.between(*latitud_lims))].id.values
     ids_to_use = sorted(ids_to_use, key=lambda x: data_sizes[x], reverse=True)
     return ids_to_use
+
 
 def get_random_sample(test_dates, seq_len, k):
     random_samples = []

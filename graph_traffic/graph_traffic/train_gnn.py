@@ -250,6 +250,8 @@ def test_model(name):
     #    get_data(data_dict, meteo_dict, temporal_dict)
     g, train_data, _, train_loader, test_loader = get_data_loaders(name, None, 64, 0)
 
+    plot_graph(g, data_dict["ids_list"])
+
     batch_g = dgl.batch([g] * args["batch_size"]).to(torch.device('cpu'))
     out_gs, in_gs = DiffConv.attach_graph(batch_g, args["diffsteps"])
     net = partial(DiffConv, k=args["diffsteps"], in_graph_list=in_gs, out_graph_list=out_gs, dir=args["dir"])

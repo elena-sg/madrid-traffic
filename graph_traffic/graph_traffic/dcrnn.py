@@ -31,7 +31,8 @@ class DiffConv(nn.Module):
         self.out_feats = out_feats
         self.k = k
         self.dir = dir
-        self.num_graphs = self.k-1 if self.dir == 'both' else 2*self.k-2
+        #self.num_graphs = self.k-1 if self.dir == 'both' else 2*self.k-2
+        self.num_graphs = 2*self.k-2 if self.dir == 'both' else self.k-1
         self.project_fcs = nn.ModuleList()
         for i in range(self.num_graphs):
             self.project_fcs.append(
