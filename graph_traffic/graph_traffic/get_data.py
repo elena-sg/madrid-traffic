@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from math import exp
 import networkx as nx
@@ -178,10 +178,16 @@ def get_data(data_dict, meteo_dict, temporal_dict, train_until=None):
     data_size = arrx.shape[0]
     if train_until is None:
         train_data_size = int(0.8 * data_size)
+        test_data_size = int(0.8 * data_size)
     else:
         dates_train = (dates.to_series().reset_index(drop=True) <= train_until)
         train_index = np.intersect1d(dates_train[dates_train].index.values, right_time_gaps)
         train_data_size = len(train_index)
+
+        dates_test = (dates.to_series().reset_index(drop=True) > train_until) &\
+                     (dates.to_series().reset_index(drop=True) <= train_until + timedelta(days=30))
+        test_index = np.intersect1d(dates_test[dates_test].index.values, right_time_gaps)
+        test_data_size = len(test_index)
 
     if not os.path.exists(f"{data_path}/05-graph-data/{dataset_name}-dataset"):
         os.mkdir(f"{data_path}/05-graph-data/{dataset_name}-dataset")
@@ -191,7 +197,7 @@ def get_data(data_dict, meteo_dict, temporal_dict, train_until=None):
     # np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_valid.npz",
     #          x=arrx[int(0.6 * data_size):int(0.8 * data_size)], y=arry[int(0.6 * data_size):int(0.8 * data_size)])
     np.savez(f"{data_path}/05-graph-data/{dataset_name}-dataset/{dataset_name}_test.npz",
-             x=arrx[train_data_size:], y=arry[train_data_size:])
+             x=arrx[train_data_size:train_data_size+test_data_size], y=arry[train_data_size:train_data_size+test_data_size])
 
     if not with_graph:
         return arrx, arry

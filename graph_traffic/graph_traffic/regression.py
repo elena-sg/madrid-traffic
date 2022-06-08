@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -84,13 +84,17 @@ def train_with_args(data_dict, meteo_dict, temporal_dict, pipeline_class, train_
     dfs_dict = {}
     ids_used = []
     train_sizes = {}
+    test_sizes = {}
     for i in data_dict["ids_list"]:
         print(i, end="\r")
         dfs_dict[i] = merge_data(i, data_dict["from_date"], data_dict["to_date"], data_dict["target"], mmagns)
         if train_until is None:
             train_sizes[i] = int(0.8 * dfs_dict[i].shape[0])
+            test_sizes[i] = int(0.2 * dfs_dict[i].shape[0])
         else:
             train_sizes[i] = len(dfs_dict[i][dfs_dict[i].date <= train_until])
+            test_sizes[i] = len(dfs_dict[i][(dfs_dict[i].date > train_until) &
+                                            (dfs_dict[i].date <= train_until + timedelta(days=30))])
         #if dates.intersection(dfs_dict[i].date).empty:
         #    continue
         #dates = dates.intersection(dfs_dict[i].date)
@@ -115,8 +119,8 @@ def train_with_args(data_dict, meteo_dict, temporal_dict, pipeline_class, train_
         train_x = dfs_dict[sensor_id][:train_sizes[sensor_id], 1:]
         train_y = dfs_dict[sensor_id][:train_sizes[sensor_id], 0].ravel()
 
-        test_x = dfs_dict[sensor_id][train_sizes[sensor_id]:, 1:]
-        test_y = dfs_dict[sensor_id][train_sizes[sensor_id]:, 0].ravel()
+        test_x = dfs_dict[sensor_id][train_sizes[sensor_id]:train_sizes[sensor_id]+test_sizes[sensor_id], 1:]
+        test_y = dfs_dict[sensor_id][train_sizes[sensor_id]:train_sizes[sensor_id]+test_sizes[sensor_id], 0].ravel()
         pipeline = clone(pipeline_class)
         print("Shape of train predictors and labels:", train_x.shape, train_y.shape)
         pipeline.fit(train_x, train_y)
