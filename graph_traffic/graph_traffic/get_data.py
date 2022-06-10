@@ -209,7 +209,7 @@ def get_data(data_dict, meteo_dict, temporal_dict, train_until=None):
         return arrx, arry, graph
 
 
-def plot_graph(graph, ids_list, save_dir=None, graph_name="graph", layout=nx.spring_layout):
+def plot_graph(graph, ids_list, save_dir=None, graph_name="graph", layout=nx.kamada_kawai_layout):
     _, ubs_dict = ubs_index(ids_list)
     labels_dict = {v: k for (k, v) in ubs_dict.items()}
     nx_G = graph.to_networkx()

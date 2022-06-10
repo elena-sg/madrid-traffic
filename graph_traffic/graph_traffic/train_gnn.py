@@ -116,8 +116,11 @@ def get_data_loaders(dataset_name, n_points, batch_size, num_workers):
     return g, train_data, test_data, train_loader, test_loader
 
 
-def train_with_args(args, data_dict, meteo_dict, temporal_dict):
+def train_with_args(args, data_dict, meteo_dict, temporal_dict, train_until=None):
     training_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    print("seq len:", data_dict["seq_len"])
+    print(train_until)
+    print(training_time)
     data_dict["dataset_name"] = training_time
 
     n_points = args["n_points"]
@@ -155,7 +158,7 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
     with open(f"{training_folder}/temporal_dict.pkl", "wb") as f:
         pickle.dump(temporal_dict, f)
 
-    _, _, g = get_data(data_dict, meteo_dict, temporal_dict)
+    _, _, g = get_data(data_dict, meteo_dict, temporal_dict, train_until=train_until)
     plot_graph(g, ids_list, save_dir=training_folder)
 
     g, train_data, test_data, train_loader, test_loader = get_data_loaders(dataset_name, n_points, batch_size, num_workers)
@@ -215,7 +218,13 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
         plt.savefig(f"{training_folder}/learning_curve_mse.svg")
         plt.close(fig)
 
-        torch.save(dcrnn.state_dict(), f"{training_folder}/model.pt")
+        torch.save(dcrnn.state_dict(), f"{training_folder}/model{e}.pt")
+
+        if len(train_maes) >= 5:
+            if all([train_mae > previous_mae for previous_mae in train_maes[-5:-1]]):
+                break
+            if all([train_mse > previous_mse for previous_mse in train_mses[-5:-1]]):
+                break
 
     print("Training finished")
 
@@ -225,8 +234,10 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict):
     with open(f"{training_folder}/losses/test.pkl", "wb") as f:
         pickle.dump(test_mses, f)
 
+    return dcrnn
 
-def test_model(name):
+
+def test_model(name, epoch=None):
     training_folder = f"{project_path}/training_history/{name}"
     with open(training_folder + "/data_dict.pkl", "rb") as f:
         data_dict = pickle.load(f)
@@ -263,7 +274,13 @@ def test_model(name):
                      net=net,
                      decay_steps=args["decay_steps"]).to(torch.device('cpu'))
 
-    dcrnn.load_state_dict(torch.load(f"{training_folder}/model.pt"))
+    if epoch is not None:
+        model_name = f"model{epoch}"
+    else:
+        model_name = "model"
+
+    state_dict = torch.load(f"{training_folder}/{model_name}.pt")
+    dcrnn.load_state_dict(state_dict)
     for i, (x, y) in enumerate(test_loader):
         # x, y, x_norm, y_norm, batch_graph = prepare_data(g.to(device), x, y, normalizer, args.batch_size, device)
         # y_pred = predict(dcrnn, batch_graph, x_norm, y_norm, normalizer, device, i)
@@ -272,7 +289,7 @@ def test_model(name):
                             NormalizationLayer(train_data.min, train_data.max))
         break
 
-    for i in range(10):
+    for i in range(2):
         fig, ax = plt.subplots()
         # ax.set_title(f"de {(y[:, i, 1]*24).min().numpy()} a  {(y[:, i, 1]*24).max().numpy()}, sensor{i%5+1}")
         ax.plot(y[:, i, 0].detach().numpy(), label="real")

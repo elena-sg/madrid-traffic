@@ -87,7 +87,7 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len, name_sa
 
         past_timestamps = np.copy(x[sample][..., 0, 1])
         for j, t in enumerate(past_timestamps[1:]):
-            if past_timestamps[j] > t:
+            while past_timestamps[j] > past_timestamps[j+1]:
                 past_timestamps[j+1] = past_timestamps[j+1] + 24
         future_timestamps = [past_timestamps[-1] + 0.25 * h for h in range(1, seq_len + 1)]
         timestamps = np.concatenate([past_timestamps, future_timestamps])
@@ -104,14 +104,14 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len, name_sa
 
             if i == 0:
                 #ax[sensor][i].set_ylabel(f"Cars/hour, sensor {labels_dict[sensor]}")
-                ax[sensor][i].set_ylabel("% of time is busy")
+                ax[sensor][i].set_ylabel("Ocupación [%]")
             if sensor == len(ids_list) - 1:
                 ax[sensor][i].set_xticks(timestamps, [f"{t % 24:.0f}" for t in timestamps])
                 #ax[sensor][i].set_xlabel(f"Sample number {i}, hour")
                 ax[sensor][i].set_xlabel("Hour of the day")
                 ax[sensor][i].xaxis.set_major_locator(MaxNLocator(integer=True))
             ax[sensor][i].legend()
-            ax[sensor][i].set_xlabel(f"Sample number {i+1}")
+            #ax[sensor][i].set_xlabel(f"Sample number {i+1}")
     fig.tight_layout()
     if name_save is not None:
         plt.savefig(name_save)
