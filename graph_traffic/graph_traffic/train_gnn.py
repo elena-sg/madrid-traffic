@@ -98,15 +98,16 @@ def eval(model, graph, dataloader, normalizer, loss_fn, device, batch_size):
     return np.mean(mae_loss), np.mean(mse_loss)
 
 
-def get_data_loaders(dataset_name, n_points, batch_size, num_workers):
+def get_data_loaders(dataset_name, n_points, batch_size, num_workers, print_shapes=False):
     g = graph_dataset(dataset_name)
     train_data = npzDataset(dataset_name, "train", n_points)
     test_data = npzDataset(dataset_name, "test", n_points)
 
-    print("Shape of train_x:", train_data.x.shape)
-    print("Shape of train_y:", train_data.y.shape)
-    print("Shape of test_x:", test_data.x.shape)
-    print("Shape of test_y:", test_data.y.shape)
+    if print_shapes:
+        print("Shape of train_x:", train_data.x.shape)
+        print("Shape of train_y:", train_data.y.shape)
+        print("Shape of test_x:", test_data.x.shape)
+        print("Shape of test_y:", test_data.y.shape)
 
     train_loader = DataLoader(
         train_data, batch_size=batch_size, num_workers=num_workers, shuffle=True)
@@ -237,7 +238,7 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict, train_until=None
     return dcrnn
 
 
-def test_model(name, epoch=None, show_examples=False, with_plot_graph=False):
+def test_model(name, epoch=None, show_examples=False, with_plot_graph=False, print_dicts=False):
     training_folder = f"{project_path}/training_history/{name}"
     with open(training_folder + "/data_dict.pkl", "rb") as f:
         data_dict = pickle.load(f)
@@ -252,10 +253,11 @@ def test_model(name, epoch=None, show_examples=False, with_plot_graph=False):
     if "dir" not in args.keys():
         args["dir"] = "both"
 
-    print("data dict:", data_dict)
-    print("learning args:", args)
-    print("temporal dict:", temporal_dict)
-    print("meteo dict:", meteo_dict)
+    if print_dicts:
+        print("data dict:", data_dict)
+        print("learning args:", args)
+        print("temporal dict:", temporal_dict)
+        print("meteo dict:", meteo_dict)
 
     #if not os.path.exists(f"{data_path}/05-graph-data/{name}-dataset"):
     #    get_data(data_dict, meteo_dict, temporal_dict)
