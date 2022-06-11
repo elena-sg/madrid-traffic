@@ -237,7 +237,7 @@ def train_with_args(args, data_dict, meteo_dict, temporal_dict, train_until=None
     return dcrnn
 
 
-def test_model(name, epoch=None):
+def test_model(name, epoch=None, show_examples=False, with_plot_graph=False):
     training_folder = f"{project_path}/training_history/{name}"
     with open(training_folder + "/data_dict.pkl", "rb") as f:
         data_dict = pickle.load(f)
@@ -261,7 +261,8 @@ def test_model(name, epoch=None):
     #    get_data(data_dict, meteo_dict, temporal_dict)
     g, train_data, _, train_loader, test_loader = get_data_loaders(name, None, 64, 0)
 
-    plot_graph(g, data_dict["ids_list"])
+    if with_plot_graph:
+        plot_graph(g, data_dict["ids_list"])
 
     batch_g = dgl.batch([g] * args["batch_size"]).to(torch.device('cpu'))
     out_gs, in_gs = DiffConv.attach_graph(batch_g, args["diffsteps"])
@@ -281,24 +282,27 @@ def test_model(name, epoch=None):
 
     state_dict = torch.load(f"{training_folder}/{model_name}.pt")
     dcrnn.load_state_dict(state_dict)
-    for i, (x, y) in enumerate(test_loader):
-        # x, y, x_norm, y_norm, batch_graph = prepare_data(g.to(device), x, y, normalizer, args.batch_size, device)
-        # y_pred = predict(dcrnn, batch_graph, x_norm, y_norm, normalizer, device, i)
-        dcrnn.eval()
-        y, y_pred = predict(x, y, args["batch_size"], g.to(torch.device('cpu')), dcrnn, torch.device('cpu'),
-                            NormalizationLayer(train_data.min, train_data.max))
-        break
 
-    for i in range(2):
+    if show_examples:
+        for i, (x, y) in enumerate(test_loader):
+            # x, y, x_norm, y_norm, batch_graph = prepare_data(g.to(device), x, y, normalizer, args.batch_size, device)
+            # y_pred = predict(dcrnn, batch_graph, x_norm, y_norm, normalizer, device, i)
+            dcrnn.eval()
+            y, y_pred = predict(x, y, args["batch_size"], g.to(torch.device('cpu')), dcrnn, torch.device('cpu'),
+                                NormalizationLayer(train_data.min, train_data.max))
+            break
+
+        for i in range(2):
+            fig, ax = plt.subplots()
+            # ax.set_title(f"de {(y[:, i, 1]*24).min().numpy()} a  {(y[:, i, 1]*24).max().numpy()}, sensor{i%5+1}")
+            ax.plot(y[:, i, 0].detach().numpy(), label="real")
+            ax.plot(y_pred[:, i, 0].detach().numpy(), label="pred")
+            plt.legend()
+
         fig, ax = plt.subplots()
-        # ax.set_title(f"de {(y[:, i, 1]*24).min().numpy()} a  {(y[:, i, 1]*24).max().numpy()}, sensor{i%5+1}")
-        ax.plot(y[:, i, 0].detach().numpy(), label="real")
-        ax.plot(y_pred[:, i, 0].detach().numpy(), label="pred")
-        plt.legend()
+        ax.scatter(y.detach().numpy().ravel(), y_pred.detach().numpy().ravel())
+        #ax.set_xlim(xmin=0, xmax=10)
+        #ax.set_ylim(xmin=0, xmax=10)
+        plt.show()
 
-    fig, ax = plt.subplots()
-    ax.scatter(y.detach().numpy().ravel(), y_pred.detach().numpy().ravel())
-    #ax.set_xlim(xmin=0, xmax=10)
-    #ax.set_ylim(xmin=0, xmax=10)
-    plt.show()
-    return dcrnn
+    return dcrnn, test_loader, NormalizationLayer(train_data.min, train_data.max), args["batch_size"], g.to(torch.device('cpu'))
