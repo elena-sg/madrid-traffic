@@ -1,0 +1,10 @@
+,MAE,MSE
+mean,7.0975,194.3968
+median,6.8177,210.3351
+daytime\_mean,5.511,152.7654
+daytime\_mean\_ww,5.0176,141.3132
+daytime\_median,5.6788,178.4711
+daytime\_median\_ww,4.9121,162.4776
+lin-reg1,5.5013,143.3149
+lin-reg2,5.4948,143.3022
+xgboost,5.1732,156.8019
