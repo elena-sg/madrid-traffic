@@ -96,19 +96,19 @@ def plot_predictions(estimator, x, y, random_samples, ids_list, seq_len, name_sa
             y_target = y_values[:, sensor]
             true_values = np.concatenate([x_target, y_target])
             preds_sensor = predictions[:, sensor, 0].ravel()
-            ax[sensor][i].plot(timestamps, true_values, label='Tráfico real', zorder=-10, alpha=0.2, color="black")
+            ax[sensor][i].plot(timestamps, true_values, label='Actual traffic', zorder=-10, alpha=0.2, color="black")
             # ax[sensor][i].scatter(past_timestamps, x_target[:seq_len], marker='X', edgecolors='k', label='Previous observations',
             #                       c='#2ca02c', s=64)
-            ax[sensor][i].plot(future_timestamps, preds_sensor, "-x", label='Predicción',
+            ax[sensor][i].plot(future_timestamps, preds_sensor, "-x", label='Forecast',
                                   c='#ff7f0e')
 
             if i == 0:
                 #ax[sensor][i].set_ylabel(f"Cars/hour, sensor {labels_dict[sensor]}")
-                ax[sensor][i].set_ylabel("Ocupación [%]")
+                ax[sensor][i].set_ylabel("Occupancy [%]")
             if sensor == len(ids_list) - 1:
                 ax[sensor][i].set_xticks(timestamps, [f"{t % 24:.0f}" for t in timestamps])
                 #ax[sensor][i].set_xlabel(f"Sample number {i}, hour")
-                ax[sensor][i].set_xlabel("Hora del día")
+                ax[sensor][i].set_xlabel("Hour of the day")
                 ax[sensor][i].xaxis.set_major_locator(MaxNLocator(integer=True))
             ax[sensor][i].legend()
             #ax[sensor][i].set_xlabel(f"Sample number {i+1}")

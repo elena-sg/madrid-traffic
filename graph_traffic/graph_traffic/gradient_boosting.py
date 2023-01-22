@@ -22,7 +22,7 @@ def get_column_score(coefs, column, column_dict):
 
 def plot_feature_importances(ids_to_use, estimators, column_names, horizontal=True):
     column_dict = {col: f"f{i}" for i, col in enumerate(column_names)}
-    fig, axs = plt.subplots(1, len(ids_to_use), figsize=(8, 2*len(ids_to_use)), sharey=True)
+    fig, axs = plt.subplots(1, len(ids_to_use), figsize=(8, len(ids_to_use)*10), sharey=True)
     if len(ids_to_use) == 1:
         axs = [axs]
     for j, i in enumerate(ids_to_use):
@@ -36,6 +36,6 @@ def plot_feature_importances(ids_to_use, estimators, column_names, horizontal=Tr
         else:
             pd.DataFrame(zip(coefs, column_names)).sort_values(0, ascending=False).rename(columns={0: "importances", 1: "features"}).plot.bar(
                 x=1, ax=ax, legend=False)
-        ax.set_title(f"{i}")
+        #ax.set_title(f"{i}")
     fig.suptitle("Feature importances")
     plt.show()
